@@ -1,22 +1,35 @@
-# 部署指南（Docker + binary）
+# 部署指南（一键 / Docker / binary）
 
-Hotify Server 是单二进制 Go 服务，零外部依赖（数据库/缓存全内嵌）。两条部署路线任选：
+Hotify Server 是单二进制 Go 服务，零外部依赖（数据库/缓存全内嵌）。部署路线任选：
 
 | 路线 | 适合 | 产物 |
 |---|---|---|
-| **A. Docker**（推荐） | Linux 服务器 / NAS / 群晖 | 容器镜像（amd64 + arm64） |
+| **A. Docker**（推荐，可一键） | Linux 服务器 / NAS / 群晖 | 容器镜像（amd64 + arm64） |
 | **B. binary** | Windows 裸机 / 不想装 Docker | Release 附件 exe（当前仅 Windows amd64；Linux 请走 Docker） |
+
+> 离线推送经项目方提供的推送云函数中转（消息体经其转发后送达华为推送服务）；纯在线使用（WebSocket 实时收发）不经过任何第三方。
 
 ---
 
 ## 路线 A：Docker
 
-### 1. 拉镜像
+### 方式一：一键脚本
 
 ```bash
-# 公开阶段（开闸后）：
-docker pull crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server:v1.0-L2.1
+# 私有阶段（先登录镜像仓库，凭证由项目方发放）：
+docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
 
+git clone <本仓地址> && cd HotifyNEXT-Server-Release
+./install.sh
+```
+
+脚本做五件事：环境检测（docker / 架构）→ 拉镜像 → 生成 `docker-compose.yml`（**已存在则不覆盖**，提示手动升级）→ 起容器 → 健康检查并打印下一步。重复执行 = 升级（重拉镜像 + `up -d`），不动数据卷。`--uninstall` 只打印卸载指令（不删数据）。
+
+公开后支持：`curl -fsSL <Gitee raw>/install.sh | bash`
+
+### 方式二：手动
+
+```bash
 # 私有阶段需先登录（凭证由项目方发放）：
 docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
 ```
@@ -46,7 +59,7 @@ environment:
 
 **两个关键配置**：
 
-- `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（防扫描非防攻击）。**要用离线推送就必须配**，且与云函数侧 `AUTH_TOKEN` 一致；纯在线使用（WebSocket 实时收发）可以不配。
+- `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（仅作共享口令校验，不是安全边界）。**要用离线推送就必须配**，且与云函数侧 `AUTH_TOKEN` 一致；纯在线使用（WebSocket 实时收发）可以不配。
 - `EXTERNAL_URL`：server 对外可达地址（含 scheme）。Docker/反代后 server 不知道自己的公网地址；不配则媒体消息在 bark/gotify 等第三方客户端通知里不显示图片、附件不可点击（原生 Hotify 客户端不受影响）。反代部署基本必配。
 
 ### 3. 数据持久化
@@ -58,7 +71,7 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 | `/data/hotify.db` | 内嵌数据库（消息/设备/凭据） |
 | `/data/blobs/` | 媒体文件（图片/音频/文件） |
 | `/data/hotify.log` | 运行日志 |
-| `/data/cli-token` | 管理 token |
+| `/data/cli-token` | 内部管理文件（勿删） |
 
 若改用 bind mount（`-v ./data:/data`），先 `chown -R 10001:10001 ./data`（容器内以 uid 10001 运行）。
 
@@ -67,7 +80,20 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 两种形态：
 
 - **直接 HTTPS**：证书挂只读进容器 + `CERT_FILE`/`KEY_FILE` 指过去。
-- **反代终结 TLS**（Caddy/nginx 管 TLS，容器跑 plain HTTP）：不设 `CERT_FILE`/`KEY_FILE`，设 `TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1"` 让 server 正确解析 `X-Forwarded-For`。
+- **反代终结 TLS**（Caddy/nginx 管 TLS，容器跑 plain HTTP）：不设 `CERT_FILE`/`KEY_FILE`，设 `TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1"` 让 server 正确解析 `X-Forwarded-For`。⚠️ nginx 默认**不转发 WebSocket**——实时通道（`/api/v1/stream`）会静默断掉，需加：
+
+  ```nginx
+  location / {
+      proxy_pass http://127.0.0.1:8443;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+  ```
+
+  （Caddy 的 `reverse_proxy` 原生支持 WebSocket，无需额外配置。）
 
 ### 5. 国内拉取
 

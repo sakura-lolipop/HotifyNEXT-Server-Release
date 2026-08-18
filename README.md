@@ -9,34 +9,39 @@
 
 - **多设备消息同步**：在线走 WebSocket 实时收发，离线自动经系统级推送送达，两路互补不丢消息
 - **兼容 bark / gotify 生态**：bark / gotify 生态的现成 App、脚本与通知集成，改个地址直接用——见[下方专章](#兼容-bark--gotify-生态)
-- **发送去重与送达回执**：弱网重发不产生重复消息，发送结果如实反馈
-- **媒体收发**：图片 / 音频 / 文件直传；配置 `external_url` 后，bark / gotify 类第三方客户端的通知也能直接显图、附件可点开
+- **消息回执**：每条消息返回 id 与调用方关联 id（配合客户端实现发送去重与送达反馈；服务端本身不做幂等，见 [API.md](API.md)）
+- **媒体收发**：图片 / 音频 / 视频 / 文件直传；配置 `external_url` 后，bark / gotify 类第三方客户端的通知也能直接显图、附件可点开
 - **部署极简**：单二进制零依赖；Docker（amd64 / arm64）与裸机均可；数据全在一个目录，备份即拷贝
 - **自动清理**：内嵌存储限额（默认 16GiB，可配），超限自动淘汰最老内容
 
 ## 快速开始
 
-### Docker（推荐）
+### Docker · 一键（推荐）
 
 ```bash
-# 0. 私有阶段先登录镜像仓库（凭证由项目方发放）
-docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
+git clone <本仓地址> && cd HotifyNEXT-Server-Release
+./install.sh          # 检测环境 → 拉镜像 → 生成 compose → 起容器 → 健康检查
+```
 
-# 1. 起容器（本仓自带 docker-compose.yml，改 environment: 块后执行）
+私有阶段先 `docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com`（凭证由项目方发放）。
+公开后支持一条命令：`curl -fsSL <Gitee raw>/install.sh | bash`。
+
+### Docker · 手动
+
+```bash
+# 起容器（本仓自带 docker-compose.yml，改 environment: 块后执行）
 docker compose up -d
 
-# 2. 健康检查（默认无证书 = HTTP；配了 CERT_FILE 后改用 https）
+# 健康检查（默认无证书 = HTTP；配了 CERT_FILE 后改用 https）
 curl http://localhost:8443/ping
 # → {"code":200,"message":"pong"}
-
-# 3. 推第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」
 ```
 
 ### 二进制（Windows x64）
 
 ```bash
-# 1. 下载 Release 附件 exe + checksums.txt，校验
-sha256sum -c checksums.txt
+# 1. 下载 Release 附件 exe + checksums.txt，校验（对比 checksums.txt 内的哈希）
+sha256sum hotify-server-v1.0-L2.1-windows-amd64.exe
 # Windows PowerShell 备选：
 # Get-FileHash .\hotify-server-v1.0-L2.1-windows-amd64.exe -Algorithm SHA256
 
@@ -49,7 +54,7 @@ sha256sum -c checksums.txt
 curl http://localhost:8443/ping
 ```
 
-完整指南（TLS / 反代 / 持久化）见 **[DEPLOY.md](DEPLOY.md)**。
+完整指南（TLS / 反代 / 持久化）见 **[DEPLOY.md](DEPLOY.md)**。推第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
 
 ## API 快速参考
 
@@ -151,8 +156,9 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 
 | 文件 | 内容 |
 |---|---|
-| [DEPLOY.md](DEPLOY.md) | 部署指南（Docker + 二进制两路，自包含） |
+| [DEPLOY.md](DEPLOY.md) | 部署指南（一键 / Docker / 二进制，自包含） |
 | [API.md](API.md) | 完整 API 文档（端点 / 鉴权 / 媒体上传 / 错误码） |
+| `install.sh` | Docker 一键部署脚本 |
 | `docker-compose.yml` | Compose 配置（全部可配项带注释） |
 | `config.example.yaml` | 配置模板（逐项注释） |
 
@@ -160,7 +166,7 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| v1.0-L2.1 | 2026-08-18 | 发送去重；第三方客户端通知显图；大附件（单文件默认上限 4GiB） |
+| v1.0-L2.1 | 2026-08-18 | 消息回执；第三方客户端通知显图；大附件（单次上传上限默认 4GiB，含全部附件） |
 
 ## 许可与源码
 

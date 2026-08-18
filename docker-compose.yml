@@ -1,6 +1,7 @@
 # Hotify Server 发行版 compose（拉镜像，非本地构建——本仓无源码）。
 #
 # 用法：改 environment: 块 → docker compose up -d
+#      或用 install.sh 一键生成并启动（本文件已存在时脚本不覆盖）。
 # 私有阶段需先 docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
 # 完整部署说明见 DEPLOY.md。
 #
@@ -26,7 +27,7 @@ services:
       # TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1" # 反代后开 XFF 解析（CSV）
       # BLOB_DIR: "/data/blobs/"
       # MAX_BYTES: "16384" # MB；16384=16GiB（默认）
-      # MAX_UPLOAD: "4GiB" # 单附件上限（默认 4GiB）
+      # MAX_UPLOAD: "4GiB" # 单次上传上限（含 meta+全部附件；默认 4GiB）
       # CLOUD_FUNCTION_URLS: "https://your-cloud-function.example/api/push" # 留空=自动拉取（推荐）
       # SUBSCRIBE_LABEL: "true"
     volumes:

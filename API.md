@@ -45,7 +45,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 
 - `title` / `body` 至少一个；`url`（点击跳转）、`image_url`（通知大图）、`category` 可选
 - `target_profile_id`：定向私聊时填目标（值为 profile id，从 `GET /api/v1/devices` 取，**不是设备 key**）；空 = 广播
-- `client_msg_id`：可选调用方消息 id（≤128 字节）；响应原样回显，用于发送去重
+- `client_msg_id`：可选调用方消息 id（≤128 字节）；响应原样回显，供调用方关联请求与消息。**服务端不做幂等去重——重发会生成新消息**
 - `sender_uuid`：可选，以某台设备身份发送（消息带来源标识）
 - 返回的 `hlc` 是这条消息的 id（字符串），用于删除、翻页
 
@@ -86,11 +86,23 @@ curl -H 'Authorization: Bearer your_key1' -o photo.jpg \
 
 ### WebSocket 实时：GET /api/v1/stream
 
-连接后**首帧发 JSON 鉴权**：`{"key1":"your_key1"}`，之后实时收新消息帧。断线重连后用 `GET /api/v1/messages?since=<最后消息id>` 补漏。
+连接后**首帧发 JSON 鉴权**（三字段缺一不可）：
+
+```json
+{"type":"auth","uuid":"<设备uuid>","key1":"your_key1","since":"0"}
+```
+
+`since` 可选（缺省=只拉最新）。之后实时收新消息帧。关闭码：**4401** = key1 错（勿重连）/ **4402** = 协议错（立即重连）/ 4000 = 服务端重启（退避重连）。断线重连后用 `GET /api/v1/messages?since=<最后消息id>` 补漏。
 
 ### 阅读进度：POST / GET /api/v1/cursor
 
-多设备同步「读到哪了」：POST 上报当前消息 id，GET 读回。覆盖式单值。
+多设备同步「读到哪了」，覆盖式单值：
+
+```bash
+curl -X POST -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/json' \
+  -d '{"view":"messages","focus_hlc":"<消息id>"}' \
+  https://your-domain.example/api/v1/cursor
+```
 
 ## 设备与凭证
 
@@ -104,7 +116,8 @@ curl -X POST https://your-domain.example/api/v1/register \
 ```
 
 - 必填：`uuid` / `platform`（`harmony`/`ios`/`android`/`windows`）/ `push_token`
-- 空服务器首台设备注册可不带凭证（生成 key1 下发）；之后注册需 `Authorization: Bearer <key1>`
+- **注册时填的 `uuid` 就是兼容入口的「设备 key」**——bark `/<uuid>/标题/正文`、gotify `?token=<uuid>` 用的都是它
+- 空服务器首台设备注册可不带凭证（生成 key1 下发）；也可 body 带 `"key1":"自定值"` 直接采纳；之后注册需 `Authorization: Bearer <key1>`
 - 同 uuid 重复注册 = 刷新推送 token，身份不变
 
 ### 设备列表：GET /api/v1/devices
