@@ -1,0 +1,111 @@
+# 部署指南（Docker + binary）
+
+Hotify Server 是单二进制 Go 服务，零外部依赖（数据库/缓存全内嵌）。两条部署路线任选：
+
+| 路线 | 适合 | 产物 |
+|---|---|---|
+| **A. Docker**（推荐） | Linux 服务器 / NAS / 群晖 | 容器镜像（amd64 + arm64） |
+| **B. binary** | Windows 裸机 / 不想装 Docker | Release 附件 exe（当前仅 Windows amd64；Linux 请走 Docker） |
+
+---
+
+## 路线 A：Docker
+
+### 1. 拉镜像
+
+```bash
+# 公开阶段（开闸后）：
+docker pull crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server:v1.0-L2.1
+
+# 私有阶段需先登录（凭证由项目方发放）：
+docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
+```
+
+### 2. 起容器
+
+本仓根目录已备 `docker-compose.yml`：
+
+```bash
+docker compose up -d
+docker compose logs -f        # 看日志确认启动
+curl -k https://localhost:8443/ping   # 健康检查 → {"code":200,"message":"pong"}
+```
+
+配置**全部走 compose 的 `environment:` 块**（12-factor，不用 config.yaml 也能起）：
+
+```yaml
+environment:
+  CLOUD_FUNCTION_TOKEN: "changeme"              # 推送云函数口令（必配，见下）
+  EXTERNAL_URL: "https://your-domain.example"   # server 对外地址（反代/隧道后必配，见下）
+  # HTTPS_PORT / CERT_FILE / KEY_FILE / MAX_UPLOAD ... 全部可选，见 compose 内注释
+```
+
+> ⚠️ 不用 `.env` 文件或 `env_file:`——群晖/Portainer 等 GUI 不认。直接编辑 `environment:` 块。
+
+**两个关键配置**：
+
+- `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（防扫描非防攻击）。与云函数侧 `AUTH_TOKEN` 一致即可。
+- `EXTERNAL_URL`：server 对外可达地址（含 scheme）。Docker/反代后 server 不知道自己的公网地址；不配则媒体消息在 bark/gotify 等第三方客户端通知里不显示图片、附件不可点击（原生 Hotify 客户端不受影响）。反代部署基本必配。
+
+### 3. 数据持久化
+
+named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`down -v` 才删，慎用）：
+
+| 路径 | 内容 |
+|---|---|
+| `/data/hotify.db` | 内嵌数据库（消息/设备/凭据） |
+| `/data/blobs/` | 媒体文件（图片/音频/文件） |
+| `/data/hotify.log` | 运行日志 |
+| `/data/cli-token` | 管理 token |
+
+若改用 bind mount（`-v ./data:/data`），先 `chown -R 10001:10001 ./data`（容器内以 uid 10001 运行）。
+
+### 4. TLS（容器里开 HTTPS）
+
+两种形态：
+
+- **直接 HTTPS**：证书挂只读进容器 + `CERT_FILE`/`KEY_FILE` 指过去。
+- **反代终结 TLS**（Caddy/nginx 管 TLS，容器跑 plain HTTP）：不设 CERT_FILE/KEY_FILE，设 `TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1"` 让 server 正确解析 `X-Forwarded-For`。
+
+### 5. 国内拉取加速
+
+镜像在阿里云 ACR（国内直连）。如需 base 镜像加速，配 `/etc/docker/daemon.json` 的 `registry-mirrors`（如阿里云加速器）后 `systemctl restart docker`。
+
+---
+
+## 路线 B：binary（Windows）
+
+```bash
+# 1. 从 Release 下载 exe + checksums.txt，校验
+sha256sum hotify-server-v1.0-L2.1-windows-amd64.exe   # 对比 checksums.txt
+
+# 2. 同目录放配置
+cp config.example.yaml config.yaml    # 编辑：至少改 cloud_function_token
+
+# 3. 起服
+./hotify-server-v1.0-L2.1-windows-amd64.exe
+# [startup] HotifyServer listening on :8443 ...
+
+# 4. 健康检查
+curl -k https://localhost:8443/ping
+```
+
+- 同目录生成 `hotify.db` / `blobs/` / `hotify.log` / `cli-token`——整个目录即全部状态，备份/迁移=拷目录。
+- 配置字段全集见 `config.example.yaml` 内注释；环境变量可覆盖同名字段（裸字段名大写，如 `HTTPS_PORT`）。
+- 无证书时以 HTTP 起在 `https_port`（配了 `tls.cert_file` 即 HTTPS）。
+
+---
+
+## 常用运维
+
+```bash
+docker compose up -d         # 起/改配置后生效
+docker compose logs -f       # 跟日志
+docker compose restart       # 改 env 后重启（无热更新）
+docker compose down          # 停（数据留存）
+curl -k https://localhost:8443/api/v1/info   # 版本/构建信息（排错先看这个）
+```
+
+## 客户端接入
+
+服务器起好后，在 Hotify 客户端（鸿蒙/安卓）「设置 → 服务器」填入地址与注册凭证即可。客户端文档随源码开源后发布。

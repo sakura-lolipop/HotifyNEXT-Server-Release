@@ -1,0 +1,40 @@
+# Hotify Server 发行版 compose（拉镜像，非本地构建——本仓无源码）。
+#
+# 用法：改 environment: 块 → docker compose up -d
+# 私有阶段需先 docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
+# 完整部署说明见 DEPLOY.md。
+#
+# ⚠️ 不用 .env / env_file:——群晖/Portainer 等 GUI 不认，直接编辑下面 environment: 块。
+
+services:
+  hotify-server:
+    image: crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server:v1.0-L2.1
+    container_name: hotify-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443" # 主端口（配 CERT_FILE 即 HTTPS；不配为 HTTP）
+      # - "8080:8080" # 可选：force_https 时做 http→https 跳转；反代终结 TLS 通常不用
+    environment:
+      # —— 全部 opt-in，按需取消注释改值 ——
+      CLOUD_FUNCTION_TOKEN: "changeme" # 推送云函数口令（与云函数侧 AUTH_TOKEN 一致）
+      # EXTERNAL_URL: "https://your-domain.example" # server 对外地址（反代/隧道后必配；
+      #                                               # 不配则第三方客户端通知不显媒体图/附件不可点）
+      # HTTPS_PORT: "8443"
+      # FORCE_HTTPS: "false" # 反代终结 TLS 时通常 false
+      # CERT_FILE: "/data/certs/fullchain.pem"
+      # KEY_FILE: "/data/certs/privkey.pem"
+      # TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1" # 反代后开 XFF 解析（CSV）
+      # BLOB_DIR: "/data/blobs/"
+      # MAX_BYTES: "16384" # MB；16384=16GiB（默认）
+      # MAX_UPLOAD: "4GiB" # 单附件上限（默认 4GiB）
+      # CLOUD_FUNCTION_URLS: "https://your-cloud-function.example/api/push" # 留空=自动拉取（推荐）
+      # SUBSCRIBE_LABEL: "true"
+    volumes:
+      - hotify-data:/data # 持久化 hotify.db + blobs/ + hotify.log + cli-token
+      # 直接 HTTPS：证书挂只读 + 上面 CERT_FILE/KEY_FILE 指 /data/certs/*
+      # - ./certs:/data/certs:ro
+      # 想挂 config.yaml（而非纯 env）：
+      # - ./config/config.yaml:/data/config.yaml:ro
+
+volumes:
+  hotify-data:

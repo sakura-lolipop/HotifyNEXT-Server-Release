@@ -1,0 +1,34 @@
+# config.example.yaml — Hotify Server 配置模板
+#
+# 用法：复制改名为 config.yaml 再改值（binary 路线；Docker 路线走 environment: 块即可，无需本文件）。
+# YAML 宽松格式：每行 `键: 值`，# 是注释，列表用裸多行 ` - 值`（无需 []/引号/逗号）。
+# ⚠️ 路径含反斜杠（Windows 绝对路径）须用单引号或正斜杠：path: 'C:\Users\...' 或 path: C:/Users/...。
+# 环境变量也能覆盖下面字段（裸字段名大写，如 HTTPS_PORT / CERT_FILE / CLOUD_FUNCTION_TOKEN），env 优先。
+
+server:
+  https_port: 8443          # 主端口；配 tls cert 即 HTTPS，没配就是 HTTP
+  http_port: 8080           # force_https=true + 配 cert 时绑这口做 http→https 跳转；非标端口侧门
+  force_https: true         # true=开 http_port 强制跳转（仅配 cert 时生效）
+  # tls:                    # 想开 HTTPS：取消注释 + 填 cert/key
+  #   cert_file: /path/to/fullchain.pem
+  #   key_file:  /path/to/privkey.pem
+  trusted_proxies:          # 可选；解析 X-Forwarded-For 的可信反代网段。缺省=仅 loopback
+    - "127.0.0.0/8"
+    - "::1"
+  # external_url: "https://your-domain.example:8443"   # server 对外可达地址（含 scheme）。
+                             # 配了 → 第三方客户端（bark/gotify 形态）通知显示媒体图/附件可点击；
+                             # 不配=该补偿关闭（原生 Hotify 客户端不受影响）。反代/隧道后必配。
+  # max_upload: "8GiB"      # 单次上传上限（含 meta+全部文件；默认 4GiB；裸 int 单位 MB）
+
+pushkit:
+  # cloud_function_urls 留空（默认）= 自动拉取推送入口 URL + 每小时刷新，无需手填。
+  # cloud_function_urls:
+  #   - "https://your-cloud-function.example/api/push"
+  cloud_function_token: "changeme"  # 推送云函数共享口令（防扫描；与云函数侧 AUTH_TOKEN 一致）
+  subscribe_label: "true"           # "true" 给订阅类推送标题加前缀（华为类目要求）
+
+store:
+  type: "bbolt"           # bbolt（持久，默认）| memory（调试，重启丢）
+  path: "hotify.db"       # 数据库文件（相对路径=工作目录）
+  blob_dir: "./blobs/"    # 媒体文件目录（文件系统，不进数据库）
+  max_bytes: 16384        # 存储空间上限（默认单位 MB，也收 "16GiB"）；16384=16GiB
