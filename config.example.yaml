@@ -15,9 +15,10 @@ server:
   trusted_proxies:          # 可选；解析 X-Forwarded-For 的可信反代网段。缺省=仅 loopback
     - "127.0.0.0/8"
     - "::1"
-  # external_url: "https://your-domain.example:8443"   # server 对外可达地址（含 scheme）。
-                             # 配了 → 第三方客户端（bark/gotify 形态）通知显示媒体图/附件可点击；
-                             # 不配=该补偿关闭（原生 Hotify 客户端不受影响）。反代/隧道后必配。
+  # external_url：server 对外可达地址（含 scheme）。反代/隧道后必配。
+  #   - 配了 → 第三方客户端（bark/gotify 形态）通知显示媒体图、附件可点击
+  #   - 不配 → 该补偿关闭（原生 Hotify 客户端不受影响）
+  # external_url: "https://your-domain.example:8443"
   # max_upload: "8GiB"      # 单次上传上限（含 meta+全部文件；默认 4GiB；裸 int 单位 MB）
 
 pushkit:

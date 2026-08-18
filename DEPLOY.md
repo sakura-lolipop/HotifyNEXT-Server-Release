@@ -27,15 +27,17 @@ docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
 
 ```bash
 docker compose up -d
-docker compose logs -f        # 看日志确认启动
-curl -k https://localhost:8443/ping   # 健康检查 → {"code":200,"message":"pong"}
+docker compose logs -f                          # 看日志确认启动
+curl http://localhost:8443/ping                 # 健康检查 → {"code":200,"message":"pong"}
 ```
+
+> 默认（未配 `CERT_FILE`/`cert_file`）以 HTTP 起在主端口；配置证书后改用 `https://`。
 
 配置**全部走 compose 的 `environment:` 块**（12-factor，不用 config.yaml 也能起）：
 
 ```yaml
 environment:
-  CLOUD_FUNCTION_TOKEN: "changeme"              # 推送云函数口令（必配，见下）
+  CLOUD_FUNCTION_TOKEN: "changeme"              # 推送云函数口令，见下
   EXTERNAL_URL: "https://your-domain.example"   # server 对外地址（反代/隧道后必配，见下）
   # HTTPS_PORT / CERT_FILE / KEY_FILE / MAX_UPLOAD ... 全部可选，见 compose 内注释
 ```
@@ -44,7 +46,7 @@ environment:
 
 **两个关键配置**：
 
-- `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（防扫描非防攻击）。与云函数侧 `AUTH_TOKEN` 一致即可。
+- `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（防扫描非防攻击）。**要用离线推送就必须配**，且与云函数侧 `AUTH_TOKEN` 一致；纯在线使用（WebSocket 实时收发）可以不配。
 - `EXTERNAL_URL`：server 对外可达地址（含 scheme）。Docker/反代后 server 不知道自己的公网地址；不配则媒体消息在 bark/gotify 等第三方客户端通知里不显示图片、附件不可点击（原生 Hotify 客户端不受影响）。反代部署基本必配。
 
 ### 3. 数据持久化
@@ -65,11 +67,11 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 两种形态：
 
 - **直接 HTTPS**：证书挂只读进容器 + `CERT_FILE`/`KEY_FILE` 指过去。
-- **反代终结 TLS**（Caddy/nginx 管 TLS，容器跑 plain HTTP）：不设 CERT_FILE/KEY_FILE，设 `TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1"` 让 server 正确解析 `X-Forwarded-For`。
+- **反代终结 TLS**（Caddy/nginx 管 TLS，容器跑 plain HTTP）：不设 `CERT_FILE`/`KEY_FILE`，设 `TRUSTED_PROXIES: "172.16.0.0/12,127.0.0.1"` 让 server 正确解析 `X-Forwarded-For`。
 
-### 5. 国内拉取加速
+### 5. 国内拉取
 
-镜像在阿里云 ACR（国内直连）。如需 base 镜像加速，配 `/etc/docker/daemon.json` 的 `registry-mirrors`（如阿里云加速器）后 `systemctl restart docker`。
+镜像托管在阿里云 ACR（国内直连），无需额外加速配置。
 
 ---
 
@@ -77,35 +79,42 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 
 ```bash
 # 1. 从 Release 下载 exe + checksums.txt，校验
-sha256sum hotify-server-v1.0-L2.1-windows-amd64.exe   # 对比 checksums.txt
+sha256sum hotify-server-v1.0-L2.1-windows-amd64.exe    # 对比 checksums.txt
+# Windows PowerShell 备选：
+# Get-FileHash .\hotify-server-v1.0-L2.1-windows-amd64.exe -Algorithm SHA256
 
-# 2. 同目录放配置
-cp config.example.yaml config.yaml    # 编辑：至少改 cloud_function_token
+# 2. 同目录放配置：复制本仓 config.example.yaml 为 config.yaml，改 token
+cp config.example.yaml config.yaml
 
 # 3. 起服
 ./hotify-server-v1.0-L2.1-windows-amd64.exe
 # [startup] HotifyServer listening on :8443 ...
 
 # 4. 健康检查
-curl -k https://localhost:8443/ping
+curl http://localhost:8443/ping
 ```
 
 - 同目录生成 `hotify.db` / `blobs/` / `hotify.log` / `cli-token`——整个目录即全部状态，备份/迁移=拷目录。
 - 配置字段全集见 `config.example.yaml` 内注释；环境变量可覆盖同名字段（裸字段名大写，如 `HTTPS_PORT`）。
-- 无证书时以 HTTP 起在 `https_port`（配了 `tls.cert_file` 即 HTTPS）。
+- 无证书时以 HTTP 起在主端口（配了 `tls.cert_file` 即 HTTPS）。
 
 ---
 
 ## 常用运维
 
 ```bash
-docker compose up -d         # 起/改配置后生效
+docker compose up -d         # 起 / 改 environment: 后重建生效
 docker compose logs -f       # 跟日志
-docker compose restart       # 改 env 后重启（无热更新）
+docker compose restart       # 仅重启进程；不会应用 compose 文件的新改动（改 env 用上行）
 docker compose down          # 停（数据留存）
-curl -k https://localhost:8443/api/v1/info   # 版本/构建信息（排错先看这个）
+curl http://localhost:8443/api/v1/info   # 版本/构建信息（排错先看这个）
+# 升级：改 docker-compose.yml 里 image tag → docker compose up -d（数据在卷里不受影响）
 ```
 
-## 客户端接入
+## 接入
 
-服务器起好后，在 Hotify 客户端（鸿蒙/安卓）「设置 → 服务器」填入地址与注册凭证即可。客户端文档随源码开源后发布。
+服务器起好后有三条路，按需选用：
+
+- **Hotify 客户端**（鸿蒙/安卓）：客户端「设置 → 服务器」填入地址与注册凭证即可。客户端文档随源码开源后发布。
+- **自写脚本 / 程序**：走 `POST /api/v1/push` 等原生接口，见 [API.md](API.md)。
+- **现成的 bark / gotify 工具**（SmsForwarder、Home Assistant、Bark App、gotify App 等）：改个地址直接用，见 [README](README.md) 的「兼容 bark / gotify 生态」。
