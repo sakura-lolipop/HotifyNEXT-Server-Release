@@ -2,12 +2,11 @@
 # install.sh — Hotify Server 一键部署（Docker；Linux / NAS）
 #
 # 用法：
+#   curl -fsSL https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/install.sh | bash
 #   ./install.sh                 # 部署（重复执行 = 升级：重拉镜像 + up -d，不动数据卷）
 #   ./install.sh --uninstall     # 仅打印卸载指令（不执行、不删数据）
 #
 # 可用环境变量覆盖默认值：HOTIFY_TAG（版本）、HOTIFY_PORT（主端口）。
-# 私有阶段需先：docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
-# （凭证由项目方发放；公开后免登录）
 
 set -u
 
@@ -47,7 +46,7 @@ preflight() {
 ensure_image() {
     info "拉取镜像 $IMAGE:$TAG"
     if ! docker pull "$IMAGE:$TAG"; then
-        die "拉取失败。私有阶段需先执行：docker login $REGISTRY_HOST（凭证由项目方发放）"
+        die "拉取失败。请检查网络；若提示需要认证（authentication required），说明该版本镜像暂不可匿名拉取"
     fi
 }
 

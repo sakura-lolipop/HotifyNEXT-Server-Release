@@ -16,26 +16,15 @@ Hotify Server 是单二进制 Go 服务，零外部依赖（数据库/缓存全�
 ### 方式一：一键脚本
 
 ```bash
-# 私有阶段（先登录镜像仓库，凭证由项目方发放）：
-docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
-
-git clone <本仓地址> && cd HotifyNEXT-Server-Release
-./install.sh
+curl -fsSL https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/install.sh | bash
+# 或 clone 本仓后执行 ./install.sh
 ```
 
 脚本做五件事：环境检测（docker / curl / 架构）→ 拉镜像 → 生成 `docker-compose.yml`（**已存在则不覆盖**，提示手动升级）→ 起容器 → 健康检查并打印下一步。重复执行 = 升级（重拉镜像 + `up -d`），不动数据卷。`--uninstall` 只打印卸载指令（不删数据）。
 
-公开后支持：`curl -fsSL <Gitee raw>/install.sh | bash`
-
 ### 方式二：手动
 
-私有阶段先登录（凭证由项目方发放）：
-
-```bash
-docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
-```
-
-起容器（本仓根目录已备 `docker-compose.yml`）：
+本仓根目录已备 `docker-compose.yml`：
 
 ```bash
 docker compose up -d

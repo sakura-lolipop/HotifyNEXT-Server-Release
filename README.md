@@ -2,8 +2,8 @@
 
 自托管的多设备消息与推送服务器：配合 Hotify 客户端（鸿蒙 / 安卓）实现设备间消息、图片与文件互发，离线时自动走系统级推送送达。数据全部保存在你自己的服务器上——单二进制、内嵌数据库、零外部依赖。
 
-> **当前状态：未公开发布。**
-> 本仓与镜像暂不公开，公开时间由项目方另行决定；届时 **Gitee 为主要下载口**（国内可达优先）。
+> **源码暂未开源**（后续将以开源许可证发布）；本仓发行物——二进制、容器镜像、部署脚本——公开可用。
+> **Gitee 为主要下载口**（国内可达优先；GitHub 为镜像口）。
 
 ## 特性
 
@@ -19,12 +19,11 @@
 ### Docker · 一键（推荐）
 
 ```bash
-git clone <本仓地址> && cd HotifyNEXT-Server-Release
-./install.sh          # 检测环境 → 拉镜像 → 生成 compose → 起容器 → 健康检查
+curl -fsSL https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/install.sh | bash
+# 或 clone 本仓后执行 ./install.sh
 ```
 
-私有阶段先 `docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com`（凭证由项目方发放）。
-公开后支持一条命令：`curl -fsSL <Gitee raw>/install.sh | bash`。
+脚本自动完成：环境检测 → 拉镜像 → 生成 compose → 起容器 → 健康检查。
 
 ### Docker · 手动
 
@@ -150,6 +149,8 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 | `config.example.yaml` | 配置模板（逐项注释） |
 
 ## 版本
+
+下载地址：[Gitee Releases（主口）](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/releases) ｜ [GitHub Releases](https://github.com/sakura-lolipop/HotifyNEXT-Server-Release/releases)
 
 | 版本 | 日期 | 说明 |
 |---|---|---|

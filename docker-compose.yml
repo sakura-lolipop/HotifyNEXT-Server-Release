@@ -2,7 +2,6 @@
 #
 # 用法：改 environment: 块 → docker compose up -d
 #      或用 install.sh 一键生成并启动（本文件已存在时脚本不覆盖）。
-# 私有阶段需先 docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
 # 完整部署说明见 DEPLOY.md。
 #
 # ⚠️ 不用 .env / env_file:——群晖/Portainer 等 GUI 不认，直接编辑下面 environment: 块。
