@@ -127,7 +127,7 @@ curl -X POST https://your-domain.example/api/v1/register \
 
 ### 设备地址别名：PUT /api/v1/devices/{uuid}/slug
 
-给设备设一个短名，替代兼容入口里的 36 位 uuid（bark 路径、gotify token、客户端 token 输入框均可填别名，语义与设备 id 完全相同）：
+给设备设一个短名，替代兼容入口里的 36 位 uuid（bark 路径、gotify token、客户端 token 输入框均可填别名，语义与设备 uuid 完全相同）：
 
 ```bash
 curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/json' \
