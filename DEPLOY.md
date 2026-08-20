@@ -153,6 +153,6 @@ curl http://localhost:8443/api/v1/info   # 版本/构建信息（排错时先查
 
 服务器启动后有三种接入方式，按需选用：
 
-- **Hotify 客户端**（鸿蒙/安卓）：客户端「设置 → 服务器」填入地址与 key1 即可。客户端文档随源码开源后发布。
+- **Hotify 客户端**（鸿蒙/安卓）：客户端「设置 → 服务器」填入服务器地址，首个设备注册时自动完成凭证配置（添加更多设备见 App 内引导）。客户端文档随源码开源后发布。
 - **自写脚本 / 程序**：走 `POST /api/v1/push` 等原生接口，见 [API.md](API.md)。
 - **现成的 bark / gotify 工具**（SmsForwarder、Home Assistant、Bark App、gotify App 等）：只需修改推送地址即可使用，见 [README](README.md) 的「兼容 bark / gotify 生态」。
