@@ -11,9 +11,9 @@ Base URL 记为 `https://your-domain.example`（未配证书时为 `http://<主�
 | 凭证 | 用法 | 能力 |
 |---|---|---|
 | **key1**（主凭证） | `Authorization: Bearer <key1>` 头 | 全部 `/api/v1/*`：推消息、拉历史、WebSocket、设备与凭证管理、备份 |
-| **设备 key**（每台设备的标识） | 放在 URL 里（bark 路径 / gotify token 位） | 兼容入口：往设备推一条消息 / 广播 |
+| **设备 uuid**（每台设备的标识，可用 slug 别名替代） | 放在 URL 里（bark 路径 / gotify token 位） | 兼容入口：往设备推一条消息 / 广播 |
 
-key1 在首台设备注册时生成（见「设备注册」）；设备 key 在设备列表中查看。
+key1 在首台设备注册时生成（见「设备注册」）；设备 uuid 在设备列表中查看。
 
 ### 响应格式
 
@@ -28,9 +28,9 @@ key1 在首台设备注册时生成（见「设备注册」）；设备 key 在�
 | 入口 | 凭证 | 投递目标 | 媒体上传 |
 |---|---|---|---|
 | `POST /api/v1/push` | key1 | 定向 / 广播 | ✅ |
-| `GET·POST /<设备key>/…`（bark 风格） | 设备 key 或 key1 | 定向该设备 / key1=广播 | ❌ |
-| `POST /message?token=`（gotify 风格） | 设备 key 或 key1 | 广播全部设备 | ❌ |
-| `POST /broadcast/…` | 设备 key 或 key1 | 广播全部设备 | ❌ |
+| `GET·POST /<uuid或slug>/…`（bark 风格） | 设备 uuid（或其 slug 别名）或 key1 | 定向该设备 / key1=广播 | ❌ |
+| `POST /message?token=`（gotify 风格） | 设备 uuid（或其 slug 别名）或 key1 | 广播全部设备 | ❌ |
+| `POST /broadcast/…` | 设备 uuid（或其 slug 别名）或 key1 | 广播全部设备 | ❌ |
 
 ### 原生：POST /api/v1/push
 
@@ -44,7 +44,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 ```
 
 - `title` / `body` 至少一个；`url`（点击跳转）、`image_url`（通知大图）、`category` 可选
-- `target_profile_id`：定向私聊时填目标（值为 profile id，从 `GET /api/v1/devices` 取，**不是设备 key**）；空 = 广播
+- `target_profile_id`：定向私聊时填目标（值为 profile id，从 `GET /api/v1/devices` 取，**不是设备 uuid**）；空 = 广播
 - `client_msg_id`：可选调用方消息 id（≤128 字节）；响应原样回显，供调用方关联请求与消息。**服务端不做幂等去重——重发会生成新消息**
 - `sender_uuid`：可选，以某台设备身份发送（消息带来源标识）
 - 返回的 `hlc` 是这条消息的 id（字符串），用于删除、翻页
@@ -58,7 +58,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 - bark：key 在路径（`/<key>/<标题>/<正文>` 最多四段），未识别参数不丢弃原样保留
 - gotify：`POST /message` + `?token=` / `X-Gotify-Key` 头 / Bearer；`message` 必填；语义为广播全部设备
 - 显式广播：`POST /broadcast/<key>/<标题>/<正文>`（bark 形）/ `POST /broadcast?token=`（gotify 形）
-- **以设备身份广播**：广播入口凭证用设备 key 时消息带该设备的来源标识（其他设备显示「来自 XX」）；用 key1 则匿名。原生接口等价用法：`POST /api/v1/push` 带 `sender_uuid`（见上）
+- **以设备身份广播**：广播入口凭证用设备 uuid 时消息带该设备的来源标识（其他设备显示「来自 XX」）；用 key1 则匿名。原生接口等价用法：`POST /api/v1/push` 带 `sender_uuid`（见上）
 - 凭证不存在 → `400 device not registered`，不落库
 
 ## 接收消息
@@ -117,7 +117,7 @@ curl -X POST https://your-domain.example/api/v1/register \
 ```
 
 - 必填：`uuid` / `platform`（`harmony`/`ios`/`android`/`windows`）/ `push_token`
-- **注册时填的 `uuid` 就是兼容入口的「设备 key」**——bark `/<uuid>/标题/正文`、gotify `?token=<uuid>` 用的都是它
+- **注册时填的 `uuid` 就是兼容入口的凭证**——bark `/<uuid>/标题/正文`、gotify `?token=<uuid>` 用的都是它（slug 别名同样可用）
 - 空服务器首台设备注册可不带凭证（生成 key1 下发）；也可 body 带 `"key1":"自定值"` 直接作为 key1 使用；之后注册需 `Authorization: Bearer <key1>`
 - 同 uuid 重复注册 = 刷新推送 token，身份不变
 
@@ -127,7 +127,7 @@ curl -X POST https://your-domain.example/api/v1/register \
 
 ### 设备地址别名：PUT /api/v1/devices/{uuid}/slug
 
-给设备设一个短名，替代兼容入口里的 36 位设备 id（bark 路径、gotify token、客户端 token 输入框均可填别名，语义与设备 id 完全相同）：
+给设备设一个短名，替代兼容入口里的 36 位 uuid（bark 路径、gotify token、客户端 token 输入框均可填别名，语义与设备 id 完全相同）：
 
 ```bash
 curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/json' \

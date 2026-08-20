@@ -47,7 +47,7 @@ curl http://localhost:8443/ping
 Base URL 以下记为 `https://your-domain.example`（未配证书时为 `http://<主机>:8443`）。两种凭证：
 
 - **`your_key1`** —— 主凭证，走 `Authorization: Bearer` 头，用于本节及 [API.md](API.md) 的全部 `/api/v1/*` 接口。首台设备注册时生成。
-- **`your_device_key`** —— 单台设备的标识，用在 bark / gotify 兼容入口（见下一节）。
+- **`your_device_uuid`** —— 单台设备的标识，用在 bark / gotify 兼容入口（见下一节）。
 
 ### 发送一条消息（主接口）
 
@@ -82,7 +82,7 @@ curl https://your-domain.example/api/v1/info
 
 ## 兼容 bark / gotify 生态
 
-Hotify 在端点级实现了 bark 与 gotify 两套推送协议。这意味着：**这两个生态里现成的 App、脚本和通知集成，把地址换成你的 Hotify 服务器就能用。**（推送地址可设置短别名，如 `https://server/pad/标题/正文`，替代 36 位设备 id——见 [API.md](API.md)）
+Hotify 在端点级实现了 bark 与 gotify 两套推送协议。这意味着：**这两个生态里现成的 App、脚本和通知集成，把地址换成你的 Hotify 服务器就能用。**（推送地址可设置短别名，如 `https://server/pad/标题/正文`，替代 36 位 uuid——见 [API.md](API.md)）
 
 可直接使用的工具：
 
@@ -93,10 +93,10 @@ Hotify 在端点级实现了 bark 与 gotify 两套推送协议。这意味着�
 
 ```bash
 # 定向推给某台设备
-curl "https://your-domain.example/your_device_key/标题/正文"
+curl "https://your-domain.example/your_device_uuid/标题/正文"
 
 # 参数也可以全放 query（POST/GET 均可）
-curl "https://your-domain.example/your_device_key?title=标题&body=正文&url=https://example.com"
+curl "https://your-domain.example/your_device_uuid?title=标题&body=正文&url=https://example.com"
 
 # key 换成 your_key1 → 广播到全部设备
 curl "https://your-domain.example/your_key1/标题/正文"
@@ -109,34 +109,34 @@ curl "https://your-domain.example/your_key1/标题/正文"
 ### gotify 风格：token 在参数或 header
 
 ```bash
-curl -X POST "https://your-domain.example/message?token=your_device_key" \
+curl -X POST "https://your-domain.example/message?token=your_device_uuid" \
   -H 'Content-Type: application/json' \
   -d '{"title":"标题","message":"正文","priority":5}'
 # → 返回 gotify 原生格式的消息对象，按 gotify 响应解析的现有脚本无需改动
 ```
 
-- 也支持 `X-Gotify-Key: your_device_key` 头或 `Authorization: Bearer your_device_key`
-- `message` 必填；gotify 语义是「应用推送」——一条消息广播到你的全部设备。**token 用设备 key 时消息带该设备的来源标识**（其他设备显示「来自 XX」——SmsForwarder 转发短信就是这种用法）；token 换成 `your_key1` 则匿名广播
+- 也支持 `X-Gotify-Key: your_device_uuid` 头或 `Authorization: Bearer your_device_uuid`
+- `message` 必填；gotify 语义是「应用推送」——一条消息广播到你的全部设备。**token 用设备 uuid 时消息带该设备的来源标识**（其他设备显示「来自 XX」——SmsForwarder 转发短信就是这种用法）；token 换成 `your_key1` 则匿名广播
 
 ### 广播全部设备（显式入口）
 
 ```bash
-curl -X POST "https://your-domain.example/broadcast/your_device_key/标题/正文"       # bark 形（key 在路径）
-curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
+curl -X POST "https://your-domain.example/broadcast/your_device_uuid/标题/正文"       # bark 形（key 在路径）
+curl -X POST "https://your-domain.example/broadcast?token=your_device_uuid" \
   -H 'Content-Type: application/json' -d '{"title":"标题","message":"正文"}'        # gotify 形（token 在 query/header）
 ```
 
-**凭证决定广播的身份**：设备 key → 消息带该设备来源标识（其他设备显示「来自 XX」）；`your_key1` → 匿名广播。
+**凭证决定广播的身份**：设备 uuid → 消息带该设备来源标识（其他设备显示「来自 XX」）；`your_key1` → 匿名广播。
 
 ### 用现成客户端收消息
 
 - **Bark App（iPhone）**：App 内添加服务器，地址填 `https://your-domain.example` 即可
 - **gotify for Android**：服务器地址同上，用户名任意，密码填 `your_key1`
-- **gotify 桌面客户端**：浏览器打开 `https://your-domain.example/gotify/your_key1`，把返回的设备 key 粘贴到客户端的 token 输入框
+- **gotify 桌面客户端**：浏览器打开 `https://your-domain.example/gotify/your_key1`，把返回的设备 uuid 粘贴到客户端的 token 输入框
 
 ### 凭证从哪来
 
-`your_key1` 在首台设备注册时生成；`your_device_key` 是每台设备的标识。两者都可在 Hotify 客户端的设备信息中查看；纯脚本用法（不经 Hotify 客户端）见 [API.md](API.md) 的「设备注册」。
+`your_key1` 在首台设备注册时生成；`your_device_uuid` 是每台设备的标识。两者都可在 Hotify 客户端的设备信息中查看；纯脚本用法（不经 Hotify 客户端）见 [API.md](API.md) 的「设备注册」。
 
 > 提示：媒体消息要在第三方 App 的通知里直接显示图片、附件可点开，需配置 `external_url`，见 [DEPLOY.md](DEPLOY.md)。
 
