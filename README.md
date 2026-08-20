@@ -3,16 +3,16 @@
 自托管的多设备消息与推送服务器：配合 Hotify 客户端（鸿蒙 / 安卓）实现设备间消息、图片与文件互发，离线时自动走系统级推送送达。数据全部保存在你自己的服务器上——单二进制、内嵌数据库、零外部依赖。
 
 > **源码暂未开源**（后续将以开源许可证发布）；本仓发行物——二进制、容器镜像、部署脚本——公开可用。
-> **Gitee 为主要下载口**（国内可达优先；GitHub 为镜像口）。
+> **Gitee 为主要下载渠道**（国内可达优先；GitHub 为镜像）。
 
 ## 特性
 
-- **bark / gotify 现成生态直接用**：SmsForwarder、Home Assistant、Uptime Kuma 等集成换个推送地址就能用；iPhone 装个 Bark App 即可收离线推送——见[下方专章](#兼容-bark--gotify-生态)
-- **离线推送真的能到达**：经华为系统级推送通道，锁屏可达、应用被杀仍送达，不依赖 FCM、不用常驻后台；在线走 WebSocket 实时收发，两路互补不丢消息
-- **消息历史多端同步**：全部消息服务端留档，换机、重装历史都在，多端阅读进度同步
-- **媒体直传**：图片 / 音频 / 视频 / 文件走同一推送接口上传，单次默认上限 4GiB、全程流式；配置 `external_url` 后，bark / gotify 客户端的通知也能直接显图
-- **不停机整库备份**：一条 `curl` 导出事务一致快照，cron 定时拉取即可；数据全在一个目录，备份迁移即拷贝
-- **部署省心**：Docker 双架构（一键脚本）或 Windows 单文件 exe，零外部依赖；浏览器打开 `/setup` 即完成初始化；镜像与下载走国内 Gitee / 阿里云直连；存储超限自动淘汰最老内容，磁盘不会无限涨
+- **bark / gotify 现成生态直接用**：SmsForwarder、Home Assistant、Uptime Kuma 等集成换个推送地址就能用；iPhone 安装 Bark App 即可收离线推送——见[下方专章](#兼容-bark--gotify-生态)
+- **离线推送可达**：经华为系统级推送通道，锁屏可达、应用进程被终止仍可送达，不依赖 FCM、不用常驻后台；在线走 WebSocket 实时收发，两路互补不丢消息
+- **消息历史多端同步**：全部消息服务端留档，换机或重装后历史消息仍保留，多端阅读进度同步
+- **媒体直传**：图片 / 音频 / 视频 / 文件走同一推送接口上传，单次默认上限 4GiB、全程流式；配置 `external_url` 后，bark / gotify 客户端的通知也能直接显示图片
+- **不停机整库备份**：一条 `curl` 命令导出事务一致快照，cron 定时拉取即可；数据全在一个目录，备份与迁移只需拷贝该目录
+- **部署简单**：Docker 双架构（一键脚本）或 Windows 单文件 exe，零外部依赖；浏览器打开 `/setup` 即完成初始化；镜像与下载走国内 Gitee / 阿里云直连；存储超限自动淘汰最旧内容，磁盘占用不会无限增长
 
 ## 快速开始
 
@@ -23,12 +23,12 @@ curl -fsSL https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/i
 # 或 clone 本仓后执行 ./install.sh
 ```
 
-脚本自动完成：环境检测 → 拉镜像 → 生成 compose → 起容器 → 健康检查。
+脚本自动完成：环境检测 → 拉取镜像 → 生成 compose → 启动容器 → 健康检查。
 
 ### Docker · 手动
 
 ```bash
-# 起容器（本仓自带 docker-compose.yml，改 environment: 块后执行）
+# 启动容器（本仓自带 docker-compose.yml，改 environment: 块后执行）
 docker compose up -d
 
 # 健康检查（默认无证书 = HTTP；配了 CERT_FILE 后改用 https）
@@ -40,7 +40,7 @@ curl http://localhost:8443/ping
 
 从 Release 下载 exe（`hotify-server-<版本>-windows-amd64.exe`）+ `checksums.txt` 校验，同目录放 `config.yaml`（由 `config.example.yaml` 复制改名）后直接运行——三步细节与常驻方式见 [DEPLOY.md](DEPLOY.md) 路线 B。
 
-完整指南（TLS / 反代 / 持久化 / 备份）见 **[DEPLOY.md](DEPLOY.md)**。推第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
+完整指南（TLS / 反代 / 持久化 / 备份）见 **[DEPLOY.md](DEPLOY.md)**。发送第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
 
 ## API 快速参考
 
@@ -49,7 +49,7 @@ Base URL 以下记为 `https://your-domain.example`（未配证书时为 `http:/
 - **`your_key1`** —— 主凭证，走 `Authorization: Bearer` 头，用于本节及 [API.md](API.md) 的全部 `/api/v1/*` 接口。首台设备注册时生成。
 - **`your_device_key`** —— 单台设备的标识，用在 bark / gotify 兼容入口（见下一节）。
 
-### 推一条消息（主接口）
+### 发送一条消息（主接口）
 
 ```bash
 curl -X POST https://your-domain.example/api/v1/push \
@@ -59,11 +59,11 @@ curl -X POST https://your-domain.example/api/v1/push \
 ```
 
 - `title` / `body` 至少填一个；`url`（点击跳转）、`image_url`（通知大图）可选
-- 返回里的 `hlc` 是这条消息的 id（字符串），可用于后续删除、翻页
+- 响应中的 `hlc` 是这条消息的 id（字符串），可用于后续删除、翻页
 - 带图片 / 文件附件：同一接口改用 `multipart/form-data`，见 [API.md](API.md)
 - ⚠️ `code:200` 不等于推送成功——`message` 含 `saved but push failed` 表示消息已保存但离线推送失败，脚本请检查 `message` 字段
 
-### 拉历史 / 探活
+### 拉取历史 / 探活
 
 ```bash
 # 最近消息（?limit=1..200；?before=<消息id> 向更早翻页）
@@ -74,9 +74,9 @@ curl -H 'Authorization: Bearer your_key1' \
 curl https://your-domain.example/api/v1/info
 ```
 
-### 不想写代码？
+### 无需自己写代码
 
-下一节告诉你怎么让现成的 bark / gotify 工具直接往这里推。
+下一节介绍如何让现成的 bark / gotify 工具直接向本服务器推送。
 
 完整接口（设备注册与管理、媒体上传与取回、WebSocket 实时通道、备份、错误码表）见 **[API.md](API.md)**。
 
@@ -84,7 +84,7 @@ curl https://your-domain.example/api/v1/info
 
 Hotify 在端点级实现了 bark 与 gotify 两套推送协议。这意味着：**这两个生态里现成的 App、脚本和通知集成，把地址换成你的 Hotify 服务器就能用。**（推送地址可设置短别名，如 `https://server/pad/标题/正文`，替代 36 位设备 id——见 [API.md](API.md)）
 
-能直接用的东西：
+可直接使用的工具：
 
 - **发送侧**：SmsForwarder（安卓短信/通知转发）、Home Assistant、Uptime Kuma 等监控面板，以及任何支持 bark 或 gotify 的通知脚本 / 集成
 - **接收侧**：iPhone 上的 **Bark App** 可直接添加本服务收推送；**gotify 客户端**（Android / 桌面 / Web）可直连实时收消息、翻历史
@@ -130,7 +130,7 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 
 - **Bark App（iPhone）**：App 内添加服务器，地址填 `https://your-domain.example` 即可
 - **gotify for Android**：服务器地址同上，用户名任意，密码填 `your_key1`
-- **gotify 桌面客户端**：浏览器打开 `https://your-domain.example/gotify/your_key1`，把返回的设备 key 粘进客户端的 token 栏
+- **gotify 桌面客户端**：浏览器打开 `https://your-domain.example/gotify/your_key1`，把返回的设备 key 粘贴到客户端的 token 输入框
 
 ### 凭证从哪来
 
@@ -150,11 +150,11 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 
 ## 版本
 
-下载地址：[Gitee Releases（主口）](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/releases) ｜ [GitHub Releases](https://github.com/sakura-lolipop/HotifyNEXT-Server-Release/releases)
+下载地址：[Gitee Releases（主渠道）](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/releases) ｜ [GitHub Releases](https://github.com/sakura-lolipop/HotifyNEXT-Server-Release/releases)
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| v1.0 | 2026-08-19 | 首发：消息回执；第三方客户端通知显图；大附件（单次上传上限默认 4GiB，含全部附件）；设备地址别名（推送 URL 可用短别名替代 36 位设备 id） |
+| v1.0 | 2026-08-19 | 首发：消息回执；第三方客户端通知显示图片；大附件（单次上传上限默认 4GiB，含全部附件）；设备地址别名（推送 URL 可用短别名替代 36 位设备 id） |
 
 ## 许可与源码
 

@@ -6,7 +6,7 @@ Base URL 记为 `https://your-domain.example`（未配证书时为 `http://<主�
 
 ### 鉴权
 
-两种凭证，能力分层——凭证越强的入口能做的事越多：
+两种凭证，能力分层——凭证权限越高，可执行的操作越多：
 
 | 凭证 | 用法 | 能力 |
 |---|---|---|
@@ -62,7 +62,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 
 ## 接收消息
 
-### 拉历史：GET /api/v1/messages
+### 拉取历史：GET /api/v1/messages
 
 ```bash
 # 最新消息（?limit=1..200，默认 50）
@@ -82,7 +82,7 @@ curl -H 'Authorization: Bearer your_key1' -o photo.jpg \
   'https://your-domain.example/api/v1/media/<hlc>/0'
 ```
 
-流式返回。此端点也接受 `?key1=` query 鉴权（浏览器直接打开附件用；其余端点只认 header）。
+流式返回。此端点也接受 `?key1=` query 鉴权（浏览器直接打开附件用；其余端点仅接受 header 鉴权）。
 
 ### WebSocket 实时：GET /api/v1/stream
 
@@ -117,7 +117,7 @@ curl -X POST https://your-domain.example/api/v1/register \
 
 - 必填：`uuid` / `platform`（`harmony`/`ios`/`android`/`windows`）/ `push_token`
 - **注册时填的 `uuid` 就是兼容入口的「设备 key」**——bark `/<uuid>/标题/正文`、gotify `?token=<uuid>` 用的都是它
-- 空服务器首台设备注册可不带凭证（生成 key1 下发）；也可 body 带 `"key1":"自定值"` 直接采纳；之后注册需 `Authorization: Bearer <key1>`
+- 空服务器首台设备注册可不带凭证（生成 key1 下发）；也可 body 带 `"key1":"自定值"` 直接作为 key1 使用；之后注册需 `Authorization: Bearer <key1>`
 - 同 uuid 重复注册 = 刷新推送 token，身份不变
 
 ### 设备列表：GET /api/v1/devices
@@ -126,7 +126,7 @@ curl -X POST https://your-domain.example/api/v1/register \
 
 ### 设备地址别名：PUT /api/v1/devices/{uuid}/slug
 
-给设备设一个短名，替代兼容入口里的 36 位设备 id（bark 路径、gotify token、客户端 token 栏均可敲别名，语义与设备 id 完全相同）：
+给设备设一个短名，替代兼容入口里的 36 位设备 id（bark 路径、gotify token、客户端 token 输入框均可填别名，语义与设备 id 完全相同）：
 
 ```bash
 curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/json' \
@@ -137,7 +137,7 @@ curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/j
 
 - 格式：小写字母/数字/连字符，2-32 字符（`^[a-z0-9][a-z0-9-]{1,31}$`）
 - 全域唯一（被其他设备占用 → `409 slug taken`）；格式错 → 400
-- `{"slug":""}` = 清除；**换值后旧别名立即失效**（别名疑似泄露时换个即吊销）
+- `{"slug":""}` = 清除；**换值后旧别名立即失效**（别名疑似泄露时更换新值即可吊销旧别名）
 
 ### 凭证轮换
 
@@ -146,10 +146,10 @@ curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/j
 curl -H 'Authorization: Bearer your_key1' https://your-domain.example/api/v1/share-url
 # → {"code":200,"key2":"…","share_path":"/share/K2…"}
 
-# 换分享地址（老地址作废，设备无感）
+# 换分享地址（旧地址作废，设备无需重新配置）
 curl -X POST -H 'Authorization: Bearer your_key1' https://your-domain.example/api/v1/rotate-key2
 
-# 换主凭证（⚠️ 老设备全部失联，需重新接入；body {"key1":"新值"} 可自定）
+# 换主凭证（⚠️ 旧设备全部失去连接，需重新接入；body {"key1":"新值"} 可自定）
 curl -X POST -H 'Authorization: Bearer your_key1' https://your-domain.example/api/v1/rotate-key1
 ```
 

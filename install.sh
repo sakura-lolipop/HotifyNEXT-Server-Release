@@ -3,7 +3,7 @@
 #
 # 用法：
 #   curl -fsSL https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/install.sh | bash
-#   ./install.sh                 # 部署（重复执行 = 升级：重拉镜像 + up -d，不动数据卷）
+#   ./install.sh                 # 部署（重复执行 = 升级：重新拉取镜像 + up -d，不影响数据卷）
 #   ./install.sh --uninstall     # 仅打印卸载指令（不执行、不删数据）
 #
 # 可用环境变量覆盖默认值：HOTIFY_TAG（版本）、HOTIFY_PORT（主端口）。
@@ -21,9 +21,9 @@ die()  { printf '\033[1;31m错误:\033[0m %s\n' "$*" >&2; exit 1; }
 
 uninstall_help() {
     cat <<EOF
-卸载指令（自行执行，脚本不代删数据）：
+卸载指令（自行执行，脚本不代为删除数据）：
 
-  docker compose down        # 停容器（数据卷 hotify-data 留存，消息/媒体不丢）
+  docker compose down        # 停容器（数据卷 hotify-data 留存，消息/媒体不会丢失）
   docker compose down -v     # ⚠️ 停 + 删数据卷（全部消息与媒体被删除，不可恢复）
   docker rmi $IMAGE:$TAG     # 删镜像
 EOF
@@ -34,13 +34,13 @@ preflight() {
     info "检测环境"
     command -v docker >/dev/null 2>&1 || die "未找到 docker。请先安装 Docker（https://docs.docker.com/engine/install/）"
     command -v curl >/dev/null 2>&1 || die "未找到 curl（健康检查依赖）"
-    docker compose version >/dev/null 2>&1 || die "docker compose v2 不可用（老版 docker-compose 请升级）"
+    docker compose version >/dev/null 2>&1 || die "docker compose v2 不可用（旧版 docker-compose 请升级）"
     ARCH="$(docker info --format '{{.Architecture}}' 2>/dev/null || echo unknown)"
     case "$ARCH" in
         x86_64|amd64|aarch64|arm64) info "架构 $ARCH ✔（镜像支持 amd64 / arm64）" ;;
         *) die "架构 $ARCH 不在支持列表（amd64 / arm64）" ;;
     esac
-    docker ps >/dev/null 2>&1 || die "当前用户无 docker 权限。试：sudo ./install.sh 或把用户加 docker 组后重新登录"
+    docker ps >/dev/null 2>&1 || die "当前用户无 docker 权限。可尝试：sudo ./install.sh，或将当前用户加入 docker 组后重新登录"
 }
 
 ensure_image() {
@@ -67,8 +67,8 @@ services:
       - "$PORT:8443"
     environment:
       # —— 按需取消注释改值 ——
-      # CLOUD_FUNCTION_TOKEN: "changeme"             # 离线推送必配（与云函数侧一致）；纯在线可不配
-      # EXTERNAL_URL: "https://your-domain.example"  # 反代/隧道后必配（第三方客户端通知显图）
+      # CLOUD_FUNCTION_TOKEN: "changeme"             # 离线推送必须配置（与云函数侧一致）；纯在线可不配
+      # EXTERNAL_URL: "https://your-domain.example"  # 反向代理/隧道后必须配置（第三方客户端通知显示图片）
     volumes:
       - hotify-data:/data
 
@@ -103,7 +103,7 @@ summary() {
 ✔ Hotify Server 已启动：http://localhost:$PORT （ping 已通过）
 
 下一步：
-  1. 离线推送 / 通知显图：编辑 $COMPOSE_FILE 的 environment: 块
+  1. 离线推送 / 通知显示图片：编辑 $COMPOSE_FILE 的 environment: 块
      （CLOUD_FUNCTION_TOKEN / EXTERNAL_URL，说明见 DEPLOY.md）→ docker compose up -d
   2. 发消息：见 README「API 快速参考」
   3. 现成工具（SmsForwarder / Home Assistant / Bark App / gotify…）：见 README「兼容 bark / gotify 生态」
