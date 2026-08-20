@@ -103,8 +103,8 @@ summary() {
 ✔ Hotify Server 已启动：http://localhost:$PORT （ping 已通过）
 
 下一步：
-  1. 离线推送 / 通知显示图片：编辑 $COMPOSE_FILE 的 environment: 块
-     （CLOUD_FUNCTION_TOKEN / EXTERNAL_URL，说明见 DEPLOY.md）→ docker compose up -d
+  1. 通知显示图片（第三方客户端）：编辑 $COMPOSE_FILE 取消注释 EXTERNAL_URL
+     （说明见 DEPLOY.md）→ docker compose up -d。离线推送已开箱即用，无需配置。
   2. 发消息：见 README「API 快速参考」
   3. 现成工具（SmsForwarder / Home Assistant / Bark App / gotify…）：见 README「兼容 bark / gotify 生态」
   数据在 docker 卷 hotify-data（备份见 DEPLOY.md）。
