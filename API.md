@@ -176,7 +176,7 @@ curl -X DELETE -H 'Authorization: Bearer your_key1' \
 
 | HTTP | 含义 |
 |---|---|
-| 400 | 请求错误（缺字段 / key 不存在 `device not registered` / 超长） |
+| 400 | 请求错误（缺字段 / 凭证不存在 `device not registered` / 超长） |
 | 401 | key1 缺失或不符 |
 | 404 | 端点不存在或对象不存在 |
 | 410 | 已废弃端点 |
