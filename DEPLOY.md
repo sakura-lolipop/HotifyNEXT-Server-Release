@@ -105,15 +105,15 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 
 ```bash
 # 1. 从 Release 下载 exe + checksums.txt，校验
-sha256sum hotify-server-v1.0-L2.1-windows-amd64.exe    # 对比 checksums.txt
+sha256sum hotify-server-v1.0-windows-amd64.exe    # 对比 checksums.txt
 # Windows PowerShell 备选：
-# Get-FileHash .\hotify-server-v1.0-L2.1-windows-amd64.exe -Algorithm SHA256
+# Get-FileHash .\hotify-server-v1.0-windows-amd64.exe -Algorithm SHA256
 
 # 2. 同目录放配置：复制本仓 config.example.yaml 为 config.yaml，改 token
 cp config.example.yaml config.yaml
 
 # 3. 起服
-./hotify-server-v1.0-L2.1-windows-amd64.exe
+./hotify-server-v1.0-windows-amd64.exe
 # [startup] HotifyServer listening on :8443 ...
 
 # 4. 健康检查

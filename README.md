@@ -41,14 +41,14 @@ curl http://localhost:8443/ping
 
 ```bash
 # 1. 下载 Release 附件 exe + checksums.txt，校验（对比 checksums.txt 内的哈希）
-sha256sum hotify-server-v1.0-L2.1-windows-amd64.exe
+sha256sum hotify-server-v1.0-windows-amd64.exe
 # Windows PowerShell 备选：
-# Get-FileHash .\hotify-server-v1.0-L2.1-windows-amd64.exe -Algorithm SHA256
+# Get-FileHash .\hotify-server-v1.0-windows-amd64.exe -Algorithm SHA256
 
 # 2. 复制本仓 config.example.yaml 为 config.yaml，改 token（与 exe 同目录）
 
 # 3. 起服
-./hotify-server-v1.0-L2.1-windows-amd64.exe
+./hotify-server-v1.0-windows-amd64.exe
 
 # 4. 健康检查
 curl http://localhost:8443/ping
@@ -166,7 +166,7 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| v1.0-L2.1 | 2026-08-18 | 消息回执；第三方客户端通知显图；大附件（单次上传上限默认 4GiB，含全部附件） |
+| v1.0 | 2026-08-19 | 首发：消息回执；第三方客户端通知显图；大附件（单次上传上限默认 4GiB，含全部附件）；设备地址别名（推送 URL 可用短别名替代 36 位设备 id） |
 
 ## 许可与源码
 

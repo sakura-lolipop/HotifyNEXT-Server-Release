@@ -11,7 +11,7 @@
 
 set -u
 
-TAG="${HOTIFY_TAG:-v1.0-L2.1}"
+TAG="${HOTIFY_TAG:-v1.0}"
 REGISTRY="crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server"
 PORT="${HOTIFY_PORT:-8443}"
 COMPOSE_FILE="docker-compose.yml"

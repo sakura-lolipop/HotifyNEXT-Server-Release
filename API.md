@@ -143,7 +143,7 @@ curl -X POST -H 'Authorization: Bearer your_key1' https://your-domain.example/ap
 ```bash
 # 版本/构建信息（公开无鉴权，探活首选）
 curl https://your-domain.example/api/v1/info
-# → {"code":200,"version":"v1.0-L2.1","commit":"…",…}
+# → {"code":200,"version":"v1.0","commit":"…",…}
 
 # 整库流式备份（不停机，输出 db 字节流）
 curl -H 'Authorization: Bearer your_key1' \
