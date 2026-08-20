@@ -116,7 +116,7 @@ curl -X POST "https://your-domain.example/message?token=your_device_key" \
 ```
 
 - 也支持 `X-Gotify-Key: your_device_key` 头或 `Authorization: Bearer your_device_key`
-- `message` 必填；gotify 语义是「应用推送」——一条消息广播到你的全部设备；token 换成 `your_key1` 则匿名广播
+- `message` 必填；gotify 语义是「应用推送」——一条消息广播到你的全部设备。**token 用设备 key 时消息带该设备的来源标识**（其他设备显示「来自 XX」——SmsForwarder 转发短信就是这种用法）；token 换成 `your_key1` 则匿名广播
 
 ### 广播全部设备（显式入口）
 
@@ -125,6 +125,8 @@ curl -X POST "https://your-domain.example/broadcast/your_device_key/标题/正�
 curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
   -H 'Content-Type: application/json' -d '{"title":"标题","message":"正文"}'        # gotify 形（token 在 query/header）
 ```
+
+**凭证决定广播的身份**：设备 key → 消息带该设备来源标识（其他设备显示「来自 XX」）；`your_key1` → 匿名广播。
 
 ### 用现成客户端收消息
 

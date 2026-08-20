@@ -58,6 +58,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 - bark：key 在路径（`/<key>/<标题>/<正文>` 最多四段），未识别参数不丢弃原样保留
 - gotify：`POST /message` + `?token=` / `X-Gotify-Key` 头 / Bearer；`message` 必填；语义为广播全部设备
 - 显式广播：`POST /broadcast/<key>/<标题>/<正文>`（bark 形）/ `POST /broadcast?token=`（gotify 形）
+- **以设备身份广播**：广播入口凭证用设备 key 时消息带该设备的来源标识（其他设备显示「来自 XX」）；用 key1 则匿名。原生接口等价用法：`POST /api/v1/push` 带 `sender_uuid`（见上）
 - 凭证不存在 → `400 device not registered`，不落库
 
 ## 接收消息
