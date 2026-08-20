@@ -152,6 +152,13 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_key" \
 
 下载地址：[Gitee Releases（主渠道）](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/releases) ｜ [GitHub Releases](https://github.com/sakura-lolipop/HotifyNEXT-Server-Release/releases)
 
+容器镜像（与 Release 同名 tag）：
+
+```bash
+docker pull crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server:v1.0   # 国内直连
+docker pull ghcr.io/sakura-lolipop/hotify-server:v1.0                                                        # 海外直连
+```
+
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | v1.0 | 2026-08-19 | 首发：消息回执；第三方客户端通知显示图片；大附件（单次上传上限默认 4GiB，含全部附件）；设备地址别名（推送 URL 可用短别名替代 36 位设备 id） |
