@@ -26,7 +26,8 @@ pushkit:
   # cloud_function_urls 留空（默认）= 自动拉取推送入口 URL + 每小时刷新，无需手填。
   # cloud_function_urls:
   #   - "https://your-cloud-function.example/api/push"
-  cloud_function_token: "changeme"  # 推送云函数共享口令（防扫描；与云函数侧 AUTH_TOKEN 一致）
+  # cloud_function_token 默认已内置公共推送云函数的口令（离线推送开箱即用）；仅自建云函数时覆盖：
+  # cloud_function_token: "your-own-token"
   subscribe_label: "true"           # "true" 给订阅类推送标题加前缀（华为类目要求）
 
 store:

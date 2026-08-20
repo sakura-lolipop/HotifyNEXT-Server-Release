@@ -17,7 +17,7 @@ services:
       # - "8080:8080" # 可选：force_https 时做 http→https 跳转；反代终结 TLS 通常不用
     environment:
       # —— 全部 opt-in，按需取消注释改值（不配任何项也能起：纯在线收发） ——
-      # CLOUD_FUNCTION_TOKEN: "changeme" # 推送云函数口令（用离线推送才配；与云函数侧 AUTH_TOKEN 一致）
+      # CLOUD_FUNCTION_TOKEN: "your-own-token" # 仅自建推送云函数时覆盖；默认已内置公共云函数口令（离线推送开箱即用）
       # EXTERNAL_URL: "https://your-domain.example" # server 对外地址（反代/隧道后必配；不配则第三方客户端通知不显媒体图/附件不可点）
       # TZ: "Asia/Shanghai" # 日志/时间戳时区（默认 UTC）
       # HTTPS_PORT: "8443"

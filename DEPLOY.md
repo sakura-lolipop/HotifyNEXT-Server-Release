@@ -38,8 +38,8 @@ curl http://localhost:8443/ping                 # 健康检查 → {"code":200,"
 
 ```yaml
 environment:
-  # —— 全部 opt-in，按需取消注释改值（不配任何项也可启动：纯在线收发）——
-  # CLOUD_FUNCTION_TOKEN: "changeme"              # 推送云函数口令，见下
+  # —— 全部 opt-in，按需取消注释改值（不配任何项也可启动：离线推送开箱即用）——
+  # CLOUD_FUNCTION_TOKEN: "your-own-token"        # 仅自建推送云函数时覆盖；默认已内置公共云函数口令
   # EXTERNAL_URL: "https://your-domain.example"   # server 对外地址（反代/隧道后必须配置，见下）
 ```
 
@@ -47,7 +47,7 @@ environment:
 
 **两个关键配置**：
 
-- `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（仅作共享口令校验，不是安全边界）。**要用离线推送就必须配**，且与云函数侧 `AUTH_TOKEN` 一致；纯在线使用（WebSocket 实时收发）可以不配。
+- `CLOUD_FUNCTION_TOKEN`：推送云函数的共享口令。**默认已内置**项目方公共推送云函数的口令——离线推送开箱即用，无需配置；仅自建云函数时覆盖为你的 `AUTH_TOKEN`。纯在线使用（WebSocket 实时收发）则完全不涉及。
 - `EXTERNAL_URL`：server 对外可达地址（含 scheme）。Docker/反代后 server 不知道自己的公网地址；不配则媒体消息在 bark/gotify 等第三方客户端通知里不显示图片、附件不可点击（原生 Hotify 客户端不受影响）。反向代理部署通常必须配置。
 
 ### 数据持久化
@@ -104,6 +104,12 @@ docker run --rm -v hotify-data:/data -v "$(pwd)":/backup alpine \
 ### 国内拉取
 
 镜像托管在阿里云 ACR（国内直连），无需额外加速配置。
+
+### 镜像 tag 说明
+
+- `vX.Y`：与 Release 同名的稳定版本——compose / install.sh 默认钉此 tag，升级 = 显式改一行 tag（这就是你的「确认升级」动作）
+- `latest`：始终指向最新版，`docker compose pull` 会隐式升级到未预览的版本，**不建议**生产默认使用
+- 海外服务器可改拉 `ghcr.io/sakura-lolipop/hotify-server`（同 tag）
 
 ---
 

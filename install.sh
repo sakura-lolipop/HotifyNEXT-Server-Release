@@ -66,8 +66,8 @@ services:
     ports:
       - "$PORT:8443"
     environment:
-      # —— 按需取消注释改值 ——
-      # CLOUD_FUNCTION_TOKEN: "changeme"             # 离线推送必须配置（与云函数侧一致）；纯在线可不配
+      # —— 按需取消注释改值（离线推送默认开箱即用，无需配置）——
+      # CLOUD_FUNCTION_TOKEN: "your-own-token"       # 仅自建推送云函数时覆盖
       # EXTERNAL_URL: "https://your-domain.example"  # 反向代理/隧道后必须配置（第三方客户端通知显示图片）
     volumes:
       - hotify-data:/data
@@ -109,8 +109,6 @@ summary() {
   3. 现成工具（SmsForwarder / Home Assistant / Bark App / gotify…）：见 README「兼容 bark / gotify 生态」
   数据在 docker 卷 hotify-data（备份见 DEPLOY.md）。
 EOF
-    grep -qE '^[[:space:]]*#.*CLOUD_FUNCTION_TOKEN' "$COMPOSE_FILE" 2>/dev/null && \
-        echo "  提示：当前未配 CLOUD_FUNCTION_TOKEN —— 仅在线收发（WebSocket），离线推送见 DEPLOY.md。"
 }
 
 main() {
