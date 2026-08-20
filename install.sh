@@ -103,6 +103,7 @@ summary() {
 ✔ Hotify Server 已启动：http://localhost:$PORT （ping 已通过）
 
 下一步：
+  0. 获取主凭证：浏览器打开 http://localhost:$PORT/setup（或首台设备注册时自动生成）
   1. 通知显示图片（第三方客户端）：编辑 $COMPOSE_FILE 取消注释 EXTERNAL_URL
      （说明见 DEPLOY.md）→ docker compose up -d。离线推送已开箱即用，无需配置。
   2. 发消息：见 README「API 快速参考」

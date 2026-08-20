@@ -8,7 +8,7 @@
 
 server:
   https_port: 8443          # 主端口；配 tls cert 即 HTTPS，未配置则为 HTTP
-  http_port: 8080           # force_https=true 且配置证书时，绑定此端口做 http→https 跳转；也可显式通过 http://主机:8080 访问
+  http_port: 8080           # 仅作 http→https 307 跳转入口（配置证书且 force_https: true 才监听；未配置证书时本端口不启用）
   force_https: true         # true=开 http_port 强制跳转（仅配 cert 时生效）
   # tls:                    # 想开 HTTPS：取消注释 + 填 cert/key
   #   cert_file: /path/to/fullchain.pem

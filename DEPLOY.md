@@ -7,7 +7,7 @@ Hotify Server 是单二进制 Go 服务，零外部依赖（数据库/缓存全�
 | **A. Docker**（推荐，可一键） | Linux 服务器 / NAS / 群晖 | 容器镜像（amd64 + arm64） |
 | **B. binary** | Windows 裸机 / 不使用 Docker | Release 附件 exe（当前仅 Windows amd64；Linux 请走 Docker） |
 
-> 离线推送经项目方提供的推送云函数中转（消息体经其转发后送达华为推送服务）；纯在线使用（WebSocket 实时收发）不经过任何第三方。
+> 离线推送分两路：华为系设备经项目方公共推送云函数中转至华为推送服务；iPhone（Bark App）由服务器直连 Apple APNs 送达（经 Apple，不经项目方）。纯在线使用（WebSocket 实时收发）不经过任何第三方。
 
 ---
 
@@ -96,6 +96,7 @@ docker run --rm -v hotify-data:/data -v "$(pwd)":/backup alpine \
       proxy_set_header Connection "upgrade";
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      client_max_body_size 0;   # nginx 默认 1M 会挡媒体上传/备份（不限制；或按需设上限）
   }
   ```
 
@@ -122,7 +123,8 @@ sha256sum hotify-server-<版本>-windows-amd64.exe
 # Windows PowerShell 备选：
 # Get-FileHash .\hotify-server-<版本>-windows-amd64.exe -Algorithm SHA256
 
-# 2. 同目录放配置：复制本仓 config.example.yaml 为 config.yaml，改 token
+# 2. 同目录放配置：复制本仓 config.example.yaml 为 config.yaml
+#    （默认值即可启动，离线推送开箱即用；按需调整见文件内注释）
 
 # 3. 启动服务 + 健康检查
 ./hotify-server-<版本>-windows-amd64.exe
@@ -151,6 +153,6 @@ curl http://localhost:8443/api/v1/info   # 版本/构建信息（排错时先查
 
 服务器启动后有三种接入方式，按需选用：
 
-- **Hotify 客户端**（鸿蒙/安卓）：客户端「设置 → 服务器」填入地址与注册凭证即可。客户端文档随源码开源后发布。
+- **Hotify 客户端**（鸿蒙/安卓）：客户端「设置 → 服务器」填入地址与 key1 即可。客户端文档随源码开源后发布。
 - **自写脚本 / 程序**：走 `POST /api/v1/push` 等原生接口，见 [API.md](API.md)。
 - **现成的 bark / gotify 工具**（SmsForwarder、Home Assistant、Bark App、gotify App 等）：只需修改推送地址即可使用，见 [README](README.md) 的「兼容 bark / gotify 生态」。

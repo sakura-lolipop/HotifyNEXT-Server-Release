@@ -11,15 +11,15 @@ Base URL 记为 `https://your-domain.example`（未配证书时为 `http://<主�
 | 凭证 | 用法 | 能力 |
 |---|---|---|
 | **key1**（主凭证） | `Authorization: Bearer <key1>` 头 | 全部 `/api/v1/*`：推消息、拉历史、WebSocket、设备与凭证管理、备份 |
-| **设备 uuid**（每台设备的标识，可用 slug 别名替代） | 放在 URL 里（bark 路径 / gotify token 位） | 兼容入口：往设备推一条消息 / 广播 |
+| **设备 uuid**（每台设备的标识，可用 slug 别名替代——slug：自行设置的短别名，见「设备地址别名」） | 放在 URL 里（bark 路径 / gotify token 位） | 兼容入口：往设备推一条消息 / 广播 |
 
-key1 在首台设备注册时生成（见「设备注册」）；设备 uuid 在设备列表中查看。
+key1 可在浏览器打开 `/setup` 设置获取，或首台设备注册时自动生成（见「设备注册」）；设备 uuid 在设备列表中查看。
 
 ### 响应格式
 
 所有原生接口返回统一 envelope：`{ "code": <同 HTTP status>, "message": "…" }`，`Content-Type: application/json`。数据类接口在 envelope 上附加数据字段（如 `messages`）。
 
-⚠️ **`code:200` 不等于推送成功**——消息已保存但离线推送失败时，`message` 含 `saved but push failed`。脚本请检查 `message` 字段。
+⚠️ **`code:200` 不等于推送成功**——消息已保存但离线推送失败时，`message` 含 `saved but push failed`。脚本请检查 `message` 字段。（例外：gotify 兼容入口返回 gotify 原生格式、不回传推送结果。）
 
 ## 发送消息
 
@@ -44,7 +44,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 ```
 
 - `title` / `body` 至少一个；`url`（点击跳转）、`image_url`（通知大图）、`category` 可选
-- `target_profile_id`：定向私聊时填目标（值为 profile id，从 `GET /api/v1/devices` 取，**不是设备 uuid**）；空 = 广播
+- `target_profile_id`：定向推给某台设备时填目标（值为 profile id，从 `GET /api/v1/devices` 取，**不是设备 uuid**）；空 = 广播
 - `client_msg_id`：可选调用方消息 id（≤128 字节）；响应原样回显，供调用方关联请求与消息。**服务端不做幂等去重——重发会生成新消息**
 - `sender_uuid`：可选，以某台设备身份发送（消息带来源标识）
 - 返回的 `hlc` 是这条消息的 id（字符串），用于删除、翻页
@@ -55,9 +55,9 @@ curl -X POST https://your-domain.example/api/v1/push \
 
 见 [README](README.md) 的「兼容 bark / gotify 生态」——含完整 curl 示例与参数说明。要点：
 
-- bark：key 在路径（`/<key>/<标题>/<正文>` 最多四段），未识别参数不丢弃原样保留
+- bark：凭证在路径（`/<凭证>/<标题>/<正文>` 最多四段），未识别参数不丢弃原样保留
 - gotify：`POST /message` + `?token=` / `X-Gotify-Key` 头 / Bearer；`message` 必填；语义为广播全部设备
-- 显式广播：`POST /broadcast/<key>/<标题>/<正文>`（bark 形）/ `POST /broadcast?token=`（gotify 形）
+- 显式广播：`POST /broadcast/<凭证>/<标题>/<正文>`（bark 形）/ `POST /broadcast?token=`（gotify 形）
 - **以设备身份广播**：广播入口凭证用设备 uuid 时消息带该设备的来源标识（其他设备显示「来自 XX」）；用 key1 则匿名。原生接口等价用法：`POST /api/v1/push` 带 `sender_uuid`（见上）
 - 凭证不存在 → `400 device not registered`，不落库
 
@@ -87,7 +87,7 @@ curl -H 'Authorization: Bearer your_key1' -o photo.jpg \
 
 ### WebSocket 实时：GET /api/v1/stream
 
-连接后**首帧发 JSON 鉴权**（三字段缺一不可）：
+连接后**首帧发 JSON 鉴权**（`type` / `uuid` / `key1` 三字段必填）：
 
 ```json
 {"type":"auth","uuid":"<设备uuid>","key1":"your_key1","since":"0"}
@@ -113,7 +113,7 @@ curl -X POST -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/
 curl -X POST https://your-domain.example/api/v1/register \
   -H 'Content-Type: application/json' \
   -d '{"uuid":"设备UUIDv4","platform":"harmony","push_token":"推送token","name":"我的手机"}'
-# → {"code":200,"message":"registered","key1":"…","key2":"…"}
+# → {"code":200,"message":"registered","key1":"…","key2":"…（预留字段，当前版本无消费功能）"}
 ```
 
 - 必填：`uuid` / `platform`（`harmony`/`ios`/`android`/`windows`）/ `push_token`
@@ -138,18 +138,12 @@ curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/j
 
 - 格式：小写字母/数字/连字符，2-32 字符（`^[a-z0-9][a-z0-9-]{1,31}$`）
 - 全域唯一（被其他设备占用 → `409 slug taken`）；格式错 → 400
+- 别名请避开与 key1 同名（同名时按 key1 解析，定向会变成广播）
 - `{"slug":""}` = 清除；**换值后旧别名立即失效**（别名疑似泄露时更换新值即可吊销旧别名）
 
 ### 凭证轮换
 
 ```bash
-# 查当前分享 URL
-curl -H 'Authorization: Bearer your_key1' https://your-domain.example/api/v1/share-url
-# → {"code":200,"key2":"…","share_path":"/share/K2…"}
-
-# 换分享地址（旧地址作废，设备无需重新配置）
-curl -X POST -H 'Authorization: Bearer your_key1' https://your-domain.example/api/v1/rotate-key2
-
 # 换主凭证（⚠️ 旧设备全部失去连接，需重新接入；body {"key1":"新值"} 可自定）
 curl -X POST -H 'Authorization: Bearer your_key1' https://your-domain.example/api/v1/rotate-key1
 ```

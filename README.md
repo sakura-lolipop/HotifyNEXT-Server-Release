@@ -10,7 +10,7 @@
 - **bark / gotify 现成生态直接用**：SmsForwarder、Home Assistant、Uptime Kuma 等集成换个推送地址就能用；iPhone 安装 Bark App 即可收离线推送——见[下方专章](#兼容-bark--gotify-生态)
 - **离线推送可达**：经华为系统级推送通道，锁屏可达、应用进程被终止仍可送达，不依赖 FCM、不用常驻后台；在线走 WebSocket 实时收发，两路互补不丢消息
 - **消息历史多端同步**：全部消息服务端留档，换机或重装后历史消息仍保留，多端阅读进度同步
-- **媒体直传**：图片 / 音频 / 视频 / 文件走同一推送接口上传，单次默认上限 4GiB、全程流式；配置 `external_url` 后，bark / gotify 客户端的通知也能直接显示图片
+- **媒体直传**：图片 / 音频 / 视频 / 文件走同一推送接口上传，单次默认上限 4GiB、全程流式；配置 `external_url` 后，bark / gotify 客户端的通知也能直接显示图片（单图消息）
 - **不停机整库备份**：一条 `curl` 命令导出事务一致快照，cron 定时拉取即可；数据全在一个目录，备份与迁移只需拷贝该目录
 - **部署简单**：Docker 双架构（一键脚本）或 Windows 单文件 exe，零外部依赖；浏览器打开 `/setup` 即完成初始化；镜像与下载走国内 Gitee / 阿里云直连；存储超限自动淘汰最旧内容，磁盘占用不会无限增长
 
@@ -43,6 +43,8 @@ curl http://localhost:8443/ping
 完整指南（TLS / 反代 / 持久化 / 备份）见 **[DEPLOY.md](DEPLOY.md)**。发送第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
 
 ## API 快速参考
+
+**首次使用**：浏览器打开 `https://your-domain.example/setup` 设置并获取 `your_key1`（或首台设备注册时自动生成，见 [API.md](API.md)）。
 
 Base URL 以下记为 `https://your-domain.example`（未配证书时为 `http://<主机>:8443`）。两种凭证：
 
@@ -87,9 +89,9 @@ Hotify 在端点级实现了 bark 与 gotify 两套推送协议。这意味着�
 可直接使用的工具：
 
 - **发送侧**：SmsForwarder（安卓短信/通知转发）、Home Assistant、Uptime Kuma 等监控面板，以及任何支持 bark 或 gotify 的通知脚本 / 集成
-- **接收侧**：iPhone 上的 **Bark App** 可直接添加本服务收推送；**gotify 客户端**（Android / 桌面 / Web）可直连实时收消息、翻历史
+- **接收侧**：iPhone 上的 **Bark App** 可直接添加本服务收推送；**gotify 客户端**（Android / 桌面可直接连；Web 版需自行部署）可直连实时收消息、翻历史
 
-### bark 风格：key 在路径里
+### bark 风格：凭证在路径里
 
 ```bash
 # 定向推给某台设备
@@ -98,13 +100,13 @@ curl "https://your-domain.example/your_device_uuid/标题/正文"
 # 参数也可以全放 query（POST/GET 均可）
 curl "https://your-domain.example/your_device_uuid?title=标题&body=正文&url=https://example.com"
 
-# key 换成 your_key1 → 广播到全部设备
+# 凭证换成 your_key1 → 广播到全部设备
 curl "https://your-domain.example/your_key1/标题/正文"
 ```
 
-- 路径最多四段：`/<key>`、`/<key>/<正文>`、`/<key>/<标题>/<正文>`、`/<key>/<标题>/<副标题>/<正文>`
-- 常用 bark 参数照常支持：`url`（点击跳转）、`sound`、`group`（分组）、`call=1`（来电样式）等；未识别的字段不会丢弃，原样保留
-- 返回 `{"code":200,"message":"success",…}`；key 不存在返回 400，不会入库
+- 路径最多四段：`/<凭证>`、`/<凭证>/<正文>`、`/<凭证>/<标题>/<正文>`、`/<凭证>/<标题>/<副标题>/<正文>`
+- bark 参数部分生效：`url`（点击跳转）、`group`（分组）、`call=1`（来电样式）、`sound`（按接收端铃声集匹配，未命中回默认）；其余参数仅原样保存备查，不影响投递
+- 返回 `{"code":200,"message":"success",…}`；凭证不存在返回 400，不会入库
 
 ### gotify 风格：token 在参数或 header
 
@@ -132,13 +134,13 @@ curl -X POST "https://your-domain.example/broadcast?token=your_device_uuid" \
 
 - **Bark App（iPhone）**：App 内添加服务器，地址填 `https://your-domain.example` 即可
 - **gotify for Android**：服务器地址同上，用户名任意，密码填 `your_key1`
-- **gotify 桌面客户端**：浏览器打开 `https://your-domain.example/gotify/your_key1`，把返回的设备 uuid 粘贴到客户端的 token 输入框
+- **gotify 桌面客户端**：浏览器打开 `https://your-domain.example/gotify/your_key1` 会**注册一台新的 gotify 接收设备**并显示其 uuid——拿到即粘贴，不要刷新（每次刷新都会多建一台）；多余设备可在设备列表删除
 
 ### 凭证从哪来
 
 `your_key1` 在首台设备注册时生成；`your_device_uuid` 是每台设备的标识。两者都可在 Hotify 客户端的设备信息中查看；纯脚本用法（不经 Hotify 客户端）见 [API.md](API.md) 的「设备注册」。
 
-> 提示：媒体消息要在第三方 App 的通知里直接显示图片、附件可点开，需配置 `external_url`，见 [DEPLOY.md](DEPLOY.md)。
+> 提示：媒体消息要在第三方 App 的通知里直接显示图片（单图消息）、附件可点开，需配置 `external_url`，见 [DEPLOY.md](DEPLOY.md)。
 
 ## 文档
 
