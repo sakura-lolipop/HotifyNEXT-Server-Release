@@ -65,10 +65,10 @@ services:
     restart: unless-stopped
     ports:
       - "$PORT:8443"
-    environment:
-      # —— 按需取消注释改值（离线推送默认开箱即用，无需配置）——
-      # CLOUD_FUNCTION_TOKEN: "your-own-token"       # 仅自建推送云函数时覆盖
-      # EXTERNAL_URL: "https://your-domain.example"  # 反向代理/隧道后必须配置（第三方客户端通知显示图片）
+    # environment 按需取消注释启用（离线推送默认开箱即用，无需配置）：
+    # environment:
+    #   CLOUD_FUNCTION_TOKEN: "your-own-token"      # 仅自建推送云函数时覆盖
+    #   EXTERNAL_URL: "https://your-domain.example" # 反向代理/隧道后必须配置（第三方客户端通知显示图片）
     volumes:
       - hotify-data:/data
 
