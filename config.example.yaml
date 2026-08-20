@@ -4,6 +4,7 @@
 # YAML 宽松格式：每行 `键: 值`，# 是注释，列表用裸多行 ` - 值`（无需 []/引号/逗号）。
 # ⚠️ 路径含反斜杠（Windows 绝对路径）须用单引号或正斜杠：path: 'C:\Users\...' 或 path: C:/Users/...。
 # 环境变量也能覆盖下面字段（裸字段名大写，如 HTTPS_PORT / CERT_FILE / CLOUD_FUNCTION_TOKEN），env 优先。
+# 例外：store.path / store.type 不走 env（变量名会撞系统 PATH/TYPE），只走本文件或默认值。
 
 server:
   https_port: 8443          # 主端口；配 tls cert 即 HTTPS，没配就是 HTTP

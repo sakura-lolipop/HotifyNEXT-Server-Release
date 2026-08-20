@@ -12,7 +12,8 @@
 set -u
 
 TAG="${HOTIFY_TAG:-v1.0}"
-REGISTRY="crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server"
+REGISTRY_HOST="crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com"
+IMAGE="$REGISTRY_HOST/sakura-lolipop/hotify-server"
 PORT="${HOTIFY_PORT:-8443}"
 COMPOSE_FILE="docker-compose.yml"
 
@@ -25,7 +26,7 @@ uninstall_help() {
 
   docker compose down        # 停容器（数据卷 hotify-data 留存，消息/媒体不丢）
   docker compose down -v     # ⚠️ 停 + 删数据卷（全部消息与媒体被删除，不可恢复）
-  docker rmi $REGISTRY:$TAG  # 删镜像
+  docker rmi $IMAGE:$TAG     # 删镜像
 EOF
     exit 0
 }
@@ -33,6 +34,7 @@ EOF
 preflight() {
     info "检测环境"
     command -v docker >/dev/null 2>&1 || die "未找到 docker。请先安装 Docker（https://docs.docker.com/engine/install/）"
+    command -v curl >/dev/null 2>&1 || die "未找到 curl（健康检查依赖）"
     docker compose version >/dev/null 2>&1 || die "docker compose v2 不可用（老版 docker-compose 请升级）"
     ARCH="$(docker info --format '{{.Architecture}}' 2>/dev/null || echo unknown)"
     case "$ARCH" in
@@ -43,9 +45,9 @@ preflight() {
 }
 
 ensure_image() {
-    info "拉取镜像 $REGISTRY:$TAG"
-    if ! docker pull "$REGISTRY:$TAG"; then
-        die "拉取失败。私有阶段需先执行：docker login $REGISTRY（凭证由项目方发放）"
+    info "拉取镜像 $IMAGE:$TAG"
+    if ! docker pull "$IMAGE:$TAG"; then
+        die "拉取失败。私有阶段需先执行：docker login $REGISTRY_HOST（凭证由项目方发放）"
     fi
 }
 
@@ -59,7 +61,7 @@ write_compose() {
 # 由 install.sh 生成。全部可配项见仓内 docker-compose.yml（带完整注释）与 DEPLOY.md。
 services:
   hotify-server:
-    image: $REGISTRY:$TAG
+    image: $IMAGE:$TAG
     container_name: hotify-server
     restart: unless-stopped
     ports:
@@ -93,7 +95,7 @@ healthcheck() {
     done
     echo "---- 最近日志 ----"
     docker compose -f "$COMPOSE_FILE" logs --tail=50 || true
-    die "健康检查超时。上方日志为排查线索；常见原因：端口被占用 / 权限问题"
+    die "健康检查超时。上方日志为排查线索；常见原因：端口被占用 / 权限问题 / 远程访问需在云安全组放行该端口"
 }
 
 summary() {

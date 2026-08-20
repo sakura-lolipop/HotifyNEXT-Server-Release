@@ -23,20 +23,19 @@ git clone <本仓地址> && cd HotifyNEXT-Server-Release
 ./install.sh
 ```
 
-脚本做五件事：环境检测（docker / 架构）→ 拉镜像 → 生成 `docker-compose.yml`（**已存在则不覆盖**，提示手动升级）→ 起容器 → 健康检查并打印下一步。重复执行 = 升级（重拉镜像 + `up -d`），不动数据卷。`--uninstall` 只打印卸载指令（不删数据）。
+脚本做五件事：环境检测（docker / curl / 架构）→ 拉镜像 → 生成 `docker-compose.yml`（**已存在则不覆盖**，提示手动升级）→ 起容器 → 健康检查并打印下一步。重复执行 = 升级（重拉镜像 + `up -d`），不动数据卷。`--uninstall` 只打印卸载指令（不删数据）。
 
 公开后支持：`curl -fsSL <Gitee raw>/install.sh | bash`
 
 ### 方式二：手动
 
+私有阶段先登录（凭证由项目方发放）：
+
 ```bash
-# 私有阶段需先登录（凭证由项目方发放）：
 docker login crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com
 ```
 
-### 2. 起容器
-
-本仓根目录已备 `docker-compose.yml`：
+起容器（本仓根目录已备 `docker-compose.yml`）：
 
 ```bash
 docker compose up -d
@@ -50,9 +49,9 @@ curl http://localhost:8443/ping                 # 健康检查 → {"code":200,"
 
 ```yaml
 environment:
-  CLOUD_FUNCTION_TOKEN: "changeme"              # 推送云函数口令，见下
-  EXTERNAL_URL: "https://your-domain.example"   # server 对外地址（反代/隧道后必配，见下）
-  # HTTPS_PORT / CERT_FILE / KEY_FILE / MAX_UPLOAD ... 全部可选，见 compose 内注释
+  # —— 全部 opt-in，按需取消注释改值（不配任何项也能起：纯在线收发）——
+  # CLOUD_FUNCTION_TOKEN: "changeme"              # 推送云函数口令，见下
+  # EXTERNAL_URL: "https://your-domain.example"   # server 对外地址（反代/隧道后必配，见下
 ```
 
 > ⚠️ 不用 `.env` 文件或 `env_file:`——群晖/Portainer 等 GUI 不认。直接编辑 `environment:` 块。
@@ -62,7 +61,7 @@ environment:
 - `CLOUD_FUNCTION_TOKEN`：华为推送云函数的共享口令（仅作共享口令校验，不是安全边界）。**要用离线推送就必须配**，且与云函数侧 `AUTH_TOKEN` 一致；纯在线使用（WebSocket 实时收发）可以不配。
 - `EXTERNAL_URL`：server 对外可达地址（含 scheme）。Docker/反代后 server 不知道自己的公网地址；不配则媒体消息在 bark/gotify 等第三方客户端通知里不显示图片、附件不可点击（原生 Hotify 客户端不受影响）。反代部署基本必配。
 
-### 3. 数据持久化
+### 数据持久化
 
 named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`down -v` 才删，慎用）：
 
@@ -75,7 +74,25 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 
 若改用 bind mount（`-v ./data:/data`），先 `chown -R 10001:10001 ./data`（容器内以 uid 10001 运行）。
 
-### 4. TLS（容器里开 HTTPS）
+### 备份 / 恢复 / 迁移
+
+数据全在卷 `hotify-data` 里。备份（宿主机任意目录执行）：
+
+```bash
+docker run --rm -v hotify-data:/data -v "$(pwd)":/backup alpine \
+  tar czf /backup/hotify-backup-$(date +%F).tar.gz -C /data .
+```
+
+恢复到新机：先 `docker compose up -d` 起一次让卷就位，再 `docker compose down`，确认备份文件无误后反向解包：
+
+```bash
+docker run --rm -v hotify-data:/data -v "$(pwd)":/backup alpine \
+  sh -c "rm -rf /data/* && tar xzf /backup/hotify-backup-<日期>.tar.gz -C /data"
+```
+
+再 `docker compose up -d` 即完成迁移。binary 路线：exe 所在整个目录拷走即备份。
+
+### TLS（容器里开 HTTPS）
 
 两种形态：
 
@@ -95,34 +112,32 @@ named volume `hotify-data` 一卷搞定，`docker compose down` 数据不丢（`
 
   （Caddy 的 `reverse_proxy` 原生支持 WebSocket，无需额外配置。）
 
-### 5. 国内拉取
+### 国内拉取
 
 镜像托管在阿里云 ACR（国内直连），无需额外加速配置。
 
 ---
 
-## 路线 B：binary（Windows）
+## 路线 B：binary（Windows x64）
 
 ```bash
-# 1. 从 Release 下载 exe + checksums.txt，校验
-sha256sum hotify-server-v1.0-windows-amd64.exe    # 对比 checksums.txt
+# 1. 从 Release 下载 exe（hotify-server-<版本>-windows-amd64.exe，版本以 Releases 页最新为准）
+#    + checksums.txt，校验（对比 checksums.txt 内的哈希）
+sha256sum hotify-server-<版本>-windows-amd64.exe
 # Windows PowerShell 备选：
-# Get-FileHash .\hotify-server-v1.0-windows-amd64.exe -Algorithm SHA256
+# Get-FileHash .\hotify-server-<版本>-windows-amd64.exe -Algorithm SHA256
 
 # 2. 同目录放配置：复制本仓 config.example.yaml 为 config.yaml，改 token
-cp config.example.yaml config.yaml
 
-# 3. 起服
-./hotify-server-v1.0-windows-amd64.exe
-# [startup] HotifyServer listening on :8443 ...
-
-# 4. 健康检查
+# 3. 起服 + 健康检查
+./hotify-server-<版本>-windows-amd64.exe
 curl http://localhost:8443/ping
 ```
 
 - 同目录生成 `hotify.db` / `blobs/` / `hotify.log` / `cli-token`——整个目录即全部状态，备份/迁移=拷目录。
-- 配置字段全集见 `config.example.yaml` 内注释；环境变量可覆盖同名字段（裸字段名大写，如 `HTTPS_PORT`）。
+- 配置字段全集见 `config.example.yaml` 内注释；环境变量可覆盖同名字段（裸字段名大写，如 `HTTPS_PORT`；`store.path` / `store.type` 除外——只走 config 文件/默认值）。
 - 无证书时以 HTTP 起在主端口（配了 `tls.cert_file` 即 HTTPS）。
+- **前台运行，关闭窗口即停止。**需要常驻可用 [NSSM](https://nssm.cc/) 注册为 Windows 服务，或用任务计划程序设为开机启动。
 
 ---
 

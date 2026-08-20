@@ -39,22 +39,9 @@ curl http://localhost:8443/ping
 
 ### 二进制（Windows x64）
 
-```bash
-# 1. 下载 Release 附件 exe + checksums.txt，校验（对比 checksums.txt 内的哈希）
-sha256sum hotify-server-v1.0-windows-amd64.exe
-# Windows PowerShell 备选：
-# Get-FileHash .\hotify-server-v1.0-windows-amd64.exe -Algorithm SHA256
+从 Release 下载 exe（`hotify-server-<版本>-windows-amd64.exe`）+ `checksums.txt` 校验，同目录放 `config.yaml`（由 `config.example.yaml` 复制改名）后直接运行——三步细节与常驻方式见 [DEPLOY.md](DEPLOY.md) 路线 B。
 
-# 2. 复制本仓 config.example.yaml 为 config.yaml，改 token（与 exe 同目录）
-
-# 3. 起服
-./hotify-server-v1.0-windows-amd64.exe
-
-# 4. 健康检查
-curl http://localhost:8443/ping
-```
-
-完整指南（TLS / 反代 / 持久化）见 **[DEPLOY.md](DEPLOY.md)**。推第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
+完整指南（TLS / 反代 / 持久化 / 备份）见 **[DEPLOY.md](DEPLOY.md)**。推第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
 
 ## API 快速参考
 

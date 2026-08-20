@@ -17,9 +17,10 @@ services:
       # 反代同机终结 TLS 时可只绑本机：- "127.0.0.1:8443:8443"
       # - "8080:8080" # 可选：force_https 时做 http→https 跳转；反代终结 TLS 通常不用
     environment:
-      # —— 全部 opt-in，按需取消注释改值 ——
-      CLOUD_FUNCTION_TOKEN: "changeme" # 推送云函数口令（与云函数侧 AUTH_TOKEN 一致）
+      # —— 全部 opt-in，按需取消注释改值（不配任何项也能起：纯在线收发） ——
+      # CLOUD_FUNCTION_TOKEN: "changeme" # 推送云函数口令（用离线推送才配；与云函数侧 AUTH_TOKEN 一致）
       # EXTERNAL_URL: "https://your-domain.example" # server 对外地址（反代/隧道后必配；不配则第三方客户端通知不显媒体图/附件不可点）
+      # TZ: "Asia/Shanghai" # 日志/时间戳时区（默认 UTC）
       # HTTPS_PORT: "8443"
       # FORCE_HTTPS: "false" # 反代终结 TLS 时通常 false
       # CERT_FILE: "/data/certs/fullchain.pem"
@@ -36,6 +37,12 @@ services:
       # - ./certs:/data/certs:ro
       # 想挂 config.yaml（而非纯 env）：
       # - ./config/config.yaml:/data/config.yaml:ro
+    # healthcheck（可选，镜像内含 wget）：
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget -qO- http://localhost:8443/ping >/dev/null || exit 1"]
+    #   interval: 60s
+    #   timeout: 5s
+    #   retries: 3
 
 volumes:
   hotify-data:
