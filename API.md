@@ -124,6 +124,21 @@ curl -X POST https://your-domain.example/api/v1/register \
 
 `Authorization: Bearer <key1>`。返回全部设备（类型 / 名称 / 最后在线 / profile id）。
 
+### 设备地址别名：PUT /api/v1/devices/{uuid}/slug
+
+给设备设一个短名，替代兼容入口里的 36 位设备 id（bark 路径、gotify token、客户端 token 栏均可敲别名，语义与设备 id 完全相同）：
+
+```bash
+curl -X PUT -H 'Authorization: Bearer your_key1' -H 'Content-Type: application/json' \
+  -d '{"slug":"pad"}' \
+  https://your-domain.example/api/v1/devices/<uuid>/slug
+# → {"code":200,"message":"…","slug":"pad"}
+```
+
+- 格式：小写字母/数字/连字符，2-32 字符（`^[a-z0-9][a-z0-9-]{1,31}$`）
+- 全域唯一（被其他设备占用 → `409 slug taken`）；格式错 → 400
+- `{"slug":""}` = 清除；**换值后旧别名立即失效**（别名疑似泄露时换个即吊销）
+
 ### 凭证轮换
 
 ```bash
