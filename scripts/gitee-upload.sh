@@ -57,10 +57,14 @@ echo "=== 建新 release（body=源码仓 changelog/$TAG.md，JSON 走文件避 
 CHANGELOG="../HotifyNEXT-Server/changelog/$TAG.md"
 [ -f "$CHANGELOG" ] || CHANGELOG="/dev/null"
 BODY_TMP="$(mktemp --suffix=.json)"
-python - "$CHANGELOG" "$TAG" > "$BODY_TMP" <<'PY'
+# target_commitish=main 必须：发行仓 Gitee 平时没推 tag，缺它 Gitee 建 release 直接 400（bridge 模板同款）。
+# python 直接 open(w,utf-8) 写文件——stdout 重定向在 Windows 会落 cp936 破中文。
+python - "$CHANGELOG" "$TAG" "$BODY_TMP" <<'PY'
 import json, sys
-body = open(sys[1], encoding="utf-8").read() if sys[1] != "/dev/null" else f"{sys[2]} 发布说明见 GitHub Releases。"
-print(json.dumps({"tag_name": sys[2], "name": f"Hotify Server {sys[2]}", "body": body}, ensure_ascii=False))
+body = open(sys.argv[1], encoding="utf-8").read() if sys.argv[1] != "/dev/null" else f"{sys.argv[2]} 发布说明见 GitHub Releases。"
+payload = {"tag_name": sys.argv[2], "name": f"Hotify Server {sys.argv[2]}", "body": body, "target_commitish": "main"}
+with open(sys.argv[3], "w", encoding="utf-8") as f:
+    json.dump(payload, f, ensure_ascii=False)
 PY
 RID=""
 for attempt in 1 2 3 4; do
