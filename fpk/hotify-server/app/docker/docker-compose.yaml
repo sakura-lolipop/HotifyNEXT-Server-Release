@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  hotify-server:
+    image: crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com/sakura-lolipop/hotify-server:v1.1
+    container_name: hotify-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - hotify-data:/data
+
+volumes:
+  hotify-data:

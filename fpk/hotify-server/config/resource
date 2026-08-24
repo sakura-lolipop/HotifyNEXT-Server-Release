@@ -1,0 +1,20 @@
+{
+  "docker-project": {
+    "projects": [
+      {
+        "name": "hotify-server",
+        "path": "docker"
+      }
+    ]
+  },
+  "data-share": {
+    "shares": [
+      {
+        "name": "hotify-server"
+      },
+      {
+        "name": "hotify-server/data"
+      }
+    ]
+  }
+}

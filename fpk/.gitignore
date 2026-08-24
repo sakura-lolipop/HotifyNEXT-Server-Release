@@ -1,0 +1,4 @@
+# 产物与工具不入库：fpk 从 Release 附件分发，fnpack 官网下载
+*.fpk
+fnpack-linux
+fnpack.exe

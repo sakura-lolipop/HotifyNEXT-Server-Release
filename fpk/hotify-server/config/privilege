@@ -1,0 +1,8 @@
+{
+    "defaults":
+    {
+        "run-as": "package"
+    },
+    "username": "docker-hotify-server",
+    "groupname": "docker-hotify-server"
+}
