@@ -1,0 +1,3 @@
+# 全文本钉 LF：任何平台/克隆工作区恒 LF，灭 autocrlf 转换噪音（抄源码仓 TD-49 根治同款）。
+# PNG 图标靠 text=auto 二进制探测豁免；fpk/cmd 脚本与 manifest 恒 LF = 重打包可复现（CRLF 上机即挂）。
+* text=auto eol=lf
