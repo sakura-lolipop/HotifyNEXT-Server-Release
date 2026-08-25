@@ -1,5 +1,5 @@
 appname               = hotify-server
-version               = 1.2.1
+version               = 1.2.2
 display_name          = Hotify Server
 desc                  = 自托管多设备消息与推送服务器：兼容 bark/gotify 生态，离线走系统级推送，消息与媒体全存自己的服务器
 platform              = all
@@ -12,4 +12,4 @@ service_port          = 8443
 checkport            = false
 desktop_uidir         = ui
 desktop_applaunchname = hotify-server.main
-changelog             = v1.2.1: 修桌面图标空地址+端口机制对齐生态(TRIM_SERVICE_PORT/wizard/config/service-setup/checkport=false,参照wg-easy)
+changelog             = v1.2.2: 桌面图标改弹浏览器新窗口(type iframe→url——iframe 在 fnOS 桌面窗口内渲染实测空白;生态152:1用url)
