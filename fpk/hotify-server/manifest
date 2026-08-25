@@ -1,7 +1,7 @@
 appname               = hotify-server
 version               = 1.2.2
 display_name          = Hotify Server
-desc                  = 自托管多设备消息与推送服务器：兼容 bark/gotify 生态，离线走系统级推送，消息与媒体全存自己的服务器
+desc                  = Hotify Server，自托管的多设备消息与推送服务器：短信验证码、服务器告警、自动化通知统一送达你的全部设备——iPhone 装 Bark App 收离线推送，Windows / 安卓接 gotify 客户端，鸿蒙走华为系统级通道锁屏必达；消息图片文件全留档在你自己的 NAS，支持多端阅读进度同步与网页管理台；短信转发器、Uptime Kuma 换个推送地址直接用。
 platform              = all
 source                = thirdparty
 maintainer            = sakura-lolipop
