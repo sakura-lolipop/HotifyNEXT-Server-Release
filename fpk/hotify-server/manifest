@@ -1,5 +1,5 @@
 appname               = hotify-server
-version               = 1.1.2
+version               = 1.1.1
 display_name          = Hotify Server
 desc                  = 自托管多设备消息与推送服务器：兼容 bark/gotify 生态，离线走系统级推送，消息与媒体全存自己的服务器
 platform              = all
@@ -11,4 +11,4 @@ distributor_url       = https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Relea
 service_port          = 8443
 desktop_uidir         = ui
 desktop_applaunchname = hotify-server.main
-changelog             = v1.1.2: 安装向导扩全量(3步:基础端口时区/对外地址+信任代理/存储上限)+compose 全字段接线
+changelog             = v1.1: 首个 fnOS 包——安装向导3步(端口/时区/对外地址/信任代理/存储)+桌面入口+console 文件浏览器
