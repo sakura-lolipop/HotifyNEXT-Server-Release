@@ -39,7 +39,7 @@ get_rid_by_tag() {
 }
 
 echo "=== 拉附件：GitHub Release $TAG → dist-gitee/ ==="
-DIST="dist-gitee"; mkdir -p "$DIST"
+DIST="dist-gitee"; rm -rf "$DIST"; mkdir -p "$DIST"   # 清场：残留旧版本文件会混传进新 release（v1.2 曾混入 v1.1 二进制）
 gh release download "$TAG" -R "$GH_REPO" -D "$DIST" -p "hotify-server-*" -p "checksums.txt" --clobber
 FPK="fpk/hotify-server/hotify-server.fpk"
 [ -f "$FPK" ] || { echo "❌ $FPK 不存在（先按 fpk/README 重打包）"; exit 1; }
