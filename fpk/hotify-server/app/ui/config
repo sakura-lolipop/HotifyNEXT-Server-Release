@@ -3,9 +3,9 @@
         "hotify-server.main": {
             "title": "Hotify Server",
             "icon": "images/icon_{0}.png",
-            "type": "url",
+            "type": "iframe",
             "protocol": "http",
-            "port": "8443",
+            "port": "${wizard_port}",
             "url": "/",
             "allUsers": false
         }

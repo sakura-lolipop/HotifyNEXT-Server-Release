@@ -1,0 +1,18 @@
+[
+  {
+    "stepTitle": "服务端口",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_port",
+        "label": "Hotify Server 端口",
+        "initValue": "8443",
+        "helpText": "默认 8443；被占用时改成其他端口（1024-65535）。安装后浏览器打开桌面图标即可进入初始化页。",
+        "rules": [
+          { "required": true, "message": "请填写端口" },
+          { "pattern": "^[0-9]+$", "message": "端口只能填数字" }
+        ]
+      }
+    ]
+  }
+]
