@@ -1,0 +1,18 @@
+[
+    {
+        "stepTitle": "服务设置",
+        "items": [
+            {
+                "type": "text",
+                "field": "wizard_port",
+                "label": "服务端口",
+                "initValue": "8443",
+                "helpText": "改端口后保存，容器会以新端口重建。若桌面图标未跟随，用浏览器访问新端口。",
+                "rules": [
+                    { "required": true, "message": "请填写端口" },
+                    { "pattern": "^[0-9]+$", "message": "端口只能填数字" }
+                ]
+            }
+        ]
+    }
+]

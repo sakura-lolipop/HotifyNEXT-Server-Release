@@ -1,5 +1,5 @@
 appname               = hotify-server
-version               = 1.2.0
+version               = 1.2.1
 display_name          = Hotify Server
 desc                  = 自托管多设备消息与推送服务器：兼容 bark/gotify 生态，离线走系统级推送，消息与媒体全存自己的服务器
 platform              = all
@@ -9,6 +9,7 @@ maintainer_url        = https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Relea
 distributor           = sakura-lolipop
 distributor_url       = https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release
 service_port          = 8443
+checkport            = false
 desktop_uidir         = ui
 desktop_applaunchname = hotify-server.main
-changelog             = v1.2: CF2 票据化直推——通知内容不过自有基础设施,一票一TTL直打华为;安装向导3步+桌面入口
+changelog             = v1.2.1: 修桌面图标空地址+端口机制对齐生态(TRIM_SERVICE_PORT/wizard/config/service-setup/checkport=false,参照wg-easy)

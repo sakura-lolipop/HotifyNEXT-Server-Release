@@ -7,7 +7,7 @@
         "field": "wizard_port",
         "label": "服务端口",
         "initValue": "8443",
-        "helpText": "浏览器访问端口（HTTP）。想要 HTTPS：推荐 fnOS 反向代理/内网穿透域名；或手动改应用 docker 配置挂证书（见发行仓 fpk/README）。被占用时改成其他端口（1024-65535）。",
+        "helpText": "浏览器访问端口（HTTP），默认 8443 无需改。想要 HTTPS：推荐 fnOS 反向代理/内网穿透域名；或手动改应用 docker 配置挂证书（见发行仓 fpk/README）。被占用时可改（装后也能在应用设置里改）。",
         "rules": [
           { "required": true, "message": "请填写端口" },
           { "pattern": "^[0-9]+$", "message": "端口只能填数字" }
