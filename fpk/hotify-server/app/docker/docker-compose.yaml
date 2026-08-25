@@ -6,10 +6,16 @@ services:
     container_name: hotify-server
     restart: unless-stopped
     ports:
-      # wizard_port=安装向导收集的端口（wizard/install 字段同名环境变量）；:-8443 兜底 wizard 缺失场景
+      # wizard_port=安装向导收集（wizard/install 同名字段→环境变量）；:-8443 兜底 wizard 未跑场景
       - "${wizard_port:-8443}:8443"
     environment:
-      TZ: Asia/Shanghai
+      # 向导值经 compose 插值注入；:-默认值保证 MAX_* 永不空串（parseByteSize("")会 fatal）
+      TZ: ${wizard_tz:-Asia/Shanghai}
+      EXTERNAL_URL: ${wizard_external_url:-}
+      TRUSTED_PROXIES: ${wizard_trusted_proxies:-}
+      MAX_BYTES: ${wizard_max_bytes:-16384}
+      MAX_UPLOAD: ${wizard_max_upload:-4GiB}
+      # 高级项（证书直配 HTTPS 等）不进向导：见 fpk/README，手动编辑本文件后应用中心重启
     volumes:
       - hotify-data:/data
 

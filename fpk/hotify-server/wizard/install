@@ -1,17 +1,72 @@
 [
   {
-    "stepTitle": "服务端口",
+    "stepTitle": "基础设置",
     "items": [
       {
         "type": "text",
         "field": "wizard_port",
-        "label": "Hotify Server 端口",
+        "label": "服务端口",
         "initValue": "8443",
-        "helpText": "默认 8443；被占用时改成其他端口（1024-65535）。安装后浏览器打开桌面图标即可进入初始化页。",
+        "helpText": "一个端口双语义：不配证书=HTTP，配了证书=HTTPS。被占用时改成其他端口（1024-65535）。",
         "rules": [
           { "required": true, "message": "请填写端口" },
           { "pattern": "^[0-9]+$", "message": "端口只能填数字" }
         ]
+      },
+      {
+        "type": "select",
+        "field": "wizard_tz",
+        "label": "时区",
+        "initValue": "Asia/Shanghai",
+        "helpText": "日志/消息时间戳的时区，一般不动。",
+        "options": [
+          { "label": "Asia/Shanghai (东八区)", "value": "Asia/Shanghai" },
+          { "label": "Asia/Tokyo (东九区)", "value": "Asia/Tokyo" },
+          { "label": "Asia/Hong_Kong", "value": "Asia/Hong_Kong" },
+          { "label": "UTC", "value": "UTC" }
+        ]
+      }
+    ]
+  },
+  {
+    "stepTitle": "对外访问（可选，反代/穿透用户）",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_external_url",
+        "label": "对外完整地址",
+        "initValue": "",
+        "helpText": "有域名/反向代理/内网穿透时填，形如 https://push.example.com。填了 bark/gotify 客户端通知才显示图片、附件链接才能点击；留空=跳过，局域网直连不受影响。"
+      },
+      {
+        "type": "text",
+        "field": "wizard_trusted_proxies",
+        "label": "信任代理网段",
+        "initValue": "",
+        "helpText": "走反向代理/穿透时填，形如 172.16.0.0/12,127.0.0.1（多个逗号分隔）。留空=不信任任何代理（直连姿势）。"
+      }
+    ]
+  },
+  {
+    "stepTitle": "存储",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_max_bytes",
+        "label": "存储上限（MB）",
+        "initValue": "16384",
+        "helpText": "消息+媒体合计占用上限，超了自动淘汰最旧内容。16384 = 16GB。",
+        "rules": [
+          { "required": true, "message": "请填写存储上限" },
+          { "pattern": "^[0-9]+$", "message": "只能填数字（MB）" }
+        ]
+      },
+      {
+        "type": "text",
+        "field": "wizard_max_upload",
+        "label": "单次上传上限",
+        "initValue": "4GiB",
+        "helpText": "单条消息全部附件合计上限，支持 4GiB / 512MiB / 1073741824 写法。"
       }
     ]
   }
