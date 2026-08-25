@@ -15,7 +15,8 @@ services:
       TRUSTED_PROXIES: ${wizard_trusted_proxies:-}
       MAX_BYTES: ${wizard_max_bytes:-16384}
       MAX_UPLOAD: ${wizard_max_upload:-4GiB}
-      # 高级项（证书直配 HTTPS 等）不进向导：见 fpk/README，手动编辑本文件后应用中心重启
+      # 高级项不进向导（证书直配 HTTPS / 自建票端点 CLOUD_FUNCTION_TOKEN 等）：见 fpk/README，
+      # 手动编辑本文件后应用中心重启。公共部署零配置——票端点匿名开放，离线推送开箱即用
     volumes:
       - hotify-data:/data
 

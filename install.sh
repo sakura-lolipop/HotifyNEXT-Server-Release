@@ -67,7 +67,7 @@ services:
       - "$PORT:8443"
     # environment 按需取消注释启用（离线推送默认开箱即用，无需配置）：
     # environment:
-    #   CLOUD_FUNCTION_TOKEN: "your-own-token"      # 仅自建推送云函数时覆盖
+    #   CLOUD_FUNCTION_TOKEN: "your-own-token"      # 自建票端点开了 TICKET_AUTH_TOKEN 才填；默认空=匿名开放
     #   EXTERNAL_URL: "https://your-domain.example" # 反向代理/隧道后必须配置（第三方客户端通知显示图片）
     volumes:
       - hotify-data:/data

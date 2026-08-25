@@ -39,7 +39,7 @@ curl http://localhost:8443/ping                 # 健康检查 → {"code":200,"
 ```yaml
 environment:
   # —— 全部 opt-in，按需取消注释改值（不配任何项也可启动：离线推送开箱即用）——
-  # CLOUD_FUNCTION_TOKEN: "your-own-token"        # 仅自建推送云函数时覆盖；默认已内置公共云函数口令
+  # CLOUD_FUNCTION_TOKEN: "your-own-token"        # 自建票端点开了 TICKET_AUTH_TOKEN 才填；默认空=匿名开放
   # EXTERNAL_URL: "https://your-domain.example"   # server 对外地址（反代/隧道后必须配置，见下）
 ```
 
@@ -47,7 +47,7 @@ environment:
 
 **两个关键配置**：
 
-- `CLOUD_FUNCTION_TOKEN`：推送云函数的共享口令。**默认已内置**项目方公共推送云函数的口令——离线推送开箱即用，无需配置；仅自建云函数时覆盖为你的 `AUTH_TOKEN`。纯在线使用（WebSocket 实时收发）则完全不涉及。
+- `CLOUD_FUNCTION_TOKEN`：票端点 Bearer。v1.2（CF2 票据化直推）起**默认空 = 不发头**，公共票端点匿名开放——离线推送开箱即用，无需配置；仅自建票端点且开了 `TICKET_AUTH_TOKEN` 时填同一值。纯在线使用（WebSocket 实时收发）则完全不涉及。
 - `EXTERNAL_URL`：server 对外可达地址（含 scheme）。Docker/反代后 server 不知道自己的公网地址；不配则媒体消息在 bark/gotify 等第三方客户端通知里不显示图片、附件不可点击（原生 Hotify 客户端不受影响）。反向代理部署通常必须配置。
 
 ### 数据持久化
