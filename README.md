@@ -5,6 +5,11 @@
 > **源码暂未开源**（后续将以开源许可证发布）；本仓发行物——二进制、容器镜像、部署脚本——公开可用。
 > **Gitee 为主要下载渠道**（国内可达优先；GitHub 为镜像）。
 
+<p align="left">
+  <img src="screenshots/client-messages.jpg" width="270" alt="Hotify 客户端消息页" />
+  <img src="screenshots/client-devices.jpg" width="270" alt="Hotify 客户端设备页" />
+</p>
+
 ## 特性
 
 - **一条 HTTP 推送到所有设备**：原生 JSON API，兼容 **bark / gotify / ntfy** 三套协议入口——SmsForwarder、Uptime Kuma、Home Assistant 等现有工具改个地址即可接入（见[下方专章](#兼容-bark--gotify--ntfy-生态)）
