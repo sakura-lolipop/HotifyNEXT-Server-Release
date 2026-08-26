@@ -52,6 +52,8 @@ curl -X POST https://your-domain.example/api/v1/push \
 
 **带附件**（multipart）：form 字段 `meta` 放消息 JSON（同上字段集），`file` part 放文件（可多个）。单次上限默认 4GiB（可配）。
 
+`GET /api/v1/media`：全库附件索引（web 控制台文件浏览器的数据源；新→旧，带原始文件名，key1 鉴权）。
+
 ### bark 风格 / gotify 风格 / 广播
 
 见 [README](README.md) 的「兼容 bark / gotify 生态」——含完整 curl 示例与参数说明。要点：
