@@ -46,6 +46,7 @@ curl -X POST https://your-domain.example/api/v1/push \
 - `title` / `body` 至少一个；`url`（点击跳转）、`image_url`（通知大图）、`category` 可选
 - `target_profile_id`：定向推给某台设备时填目标（值为 profile id，从 `GET /api/v1/devices` 取，**不是设备 uuid**）；空 = 广播
 - `client_msg_id`：可选调用方消息 id（≤128 字节）；响应原样回显，供调用方关联请求与消息。**服务端不做幂等去重——重发会生成新消息**
+- `ext`：可选，哑管透传键值对（如 `"ext": {"sound": "bell"}` 设这条消息的铃声，优先级高于群/设备默认）；原样落库透传、无校验，不认识的键无副作用
 - `sender_uuid`：可选，以某台设备身份发送（消息带来源标识）
 - 返回的 `hlc` 是这条消息的 id（字符串），用于删除、翻页
 
