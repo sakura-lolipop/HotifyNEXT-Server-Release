@@ -222,7 +222,7 @@ curl https://get.acme.sh | sh -s email=you@example.com
 
 ### 3.7 同机多实例（多用户）
 
-Hotify 一实例 = 一套独立凭证与数据（单租户）。同机给多个用户各一套 = 多实例：复制本仓 `docker-compose.yml` 后**三处同改**（其余不动），第 N 套递增：
+Hotify 一实例 = 一套独立凭证与数据（单租户）。同机给多个用户（如家人）各一套 = 多实例：**新开一个部署目录**（如 `~/hotify-server-2/`，不动第一套的目录与 compose），把本仓 `docker-compose.yml` 复制进去后**三处同改**（其余不动），第 N 套递增：
 
 ```yaml
 # 1) 容器名
