@@ -17,6 +17,7 @@
 - **在线实时收发**：WebSocket 毫秒级投递，断线自动增量补漏；与离线推送两路互补、按消息 id 去重，不丢不重
 - **多设备消息中枢**：广播 / 定向 / `phone@pad` 式私聊地址；消息、图片与文件设备间互发，换机或重装后身份自动恢复、历史消息仍保留，多端阅读进度同步
 - **媒体直传**：图片 / 音频 / 视频 / 文件走同一推送接口上传，单次默认上限 4GiB、全程流式，附件支持断点续传；配置 `external_url` 后，bark / gotify 客户端的通知也能直接显示图片（单图消息）
+- **webhook 插件**：一份声明式 YAML 接入任意 webhook 源（memos 评论、Grafana 告警、Sonarr 下载完成…），放进 `hooks/` 目录即装；插件是纯数据，写不出恶意行为。现成插件与 AI 代写指南见 [HotifyNEXT-Plugins](https://gitee.com/sakura-lolipop/hotifynext-plugins)——把规则文档和服务名发给任意 AI 助手，一句话让它替你写
 - **网页管理台**：`/setup` 浏览器完成初始化；`/console` 管理设备、浏览消息附件文件、在线整库备份
 - **不停机整库备份**：一条 `curl` 命令导出事务一致快照，cron 定时拉取即可；数据全在一个目录，备份与迁移只需拷贝该目录，存储超限自动淘汰最旧内容
 - **部署简单、国内可达**：Docker 双架构一键脚本（阿里云镜像直连）、Windows 单文件 exe 或 6 平台二进制；通知内容不经过第三方中继，自托管无消息量限额
@@ -52,6 +53,17 @@ curl http://localhost:8443/ping
 从 Release 下载 exe（`hotify-server-<版本>-windows-amd64.exe`）+ `checksums.txt` 校验，同目录放 `config.yaml`（由 `config.example.yaml` 复制改名）后直接运行——三步细节与常驻方式见 [DEPLOY.md](DEPLOY.md) 路线 B。
 
 完整指南（TLS / 反代 / 持久化 / 备份）见 **[DEPLOY.md](DEPLOY.md)**。发送第一条消息 → 见下方「API 快速参考」与「兼容 bark / gotify 生态」。
+
+## 🔌 接入 webhook 通知（插件）
+
+想让 memos 评论、Grafana 告警、Sonarr 下载完成这类事件推到手机？**把下面两样发给任意 AI 助手，一句话搞定**：
+
+1. 规则文档链接：`https://gitee.com/sakura-lolipop/hotifynext-plugins/raw/main/hooks.md`
+2. 你想接的服务名
+
+> 照这份规则给 \<服务名\> 写一个 Hotify 插件，并告诉我怎么装。
+
+AI 会给你一个 yaml + 安装步骤（存进 `hooks/` 目录——docker 加挂载行 `./hooks:/data/hooks`——设它说的环境变量、重启；`docker logs` 见 `[hooks] loaded 1 plugin(s): <id>` 即装好，再去源端把 webhook URL 指到 `https://<你的域名>/hooks/<id>`）。不想用 AI？现成插件（Grafana/GitHub/Sonarr/n8n/uptime-kuma/healthchecks/immich/jellyfin/memos）直接下载：[HotifyNEXT-Plugins](https://gitee.com/sakura-lolipop/hotifynext-plugins)。
 
 ## API 快速参考
 

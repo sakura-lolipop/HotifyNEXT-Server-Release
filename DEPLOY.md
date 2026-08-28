@@ -61,6 +61,7 @@ environment:
 | `/data/hotify.db` | 内嵌数据库（消息/设备/凭据） |
 | `/data/blobs/` | 媒体文件（图片/音频/文件） |
 | `/data/hotify.log` | 运行日志 |
+| `/data/hooks/` | **webhook 插件目录**（一个插件一个 yaml，挂载 `./hooks:/data/hooks`；装=放文件+设 `HOOKS_<ID>_SECRET`+重启。现成插件与规则见 [HotifyNEXT-Plugins](https://gitee.com/sakura-lolipop/hotifynext-plugins)） |
 | `/data/cli-token` | 内部管理文件（勿删） |
 
 若改用 bind mount（`-v ./data:/data`），先 `chown -R 10001:10001 ./data`（容器内以 uid 10001 运行）。
