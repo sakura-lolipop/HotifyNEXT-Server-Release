@@ -23,6 +23,10 @@
 
 ## 快速开始
 
+> 🤖 **有 AI 助手（Claude Code / Codex / Cursor 等）？不用自己看文档**——对它说：
+> 「读取 https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/aideploy.md 并按它帮我把 Hotify 部署好」
+> 它会先识别是否已装过（已装则问你是升级还是另装一套，不会当新机覆盖），再问你几个问题（部署到哪 / Docker 还是二进制 / 有没有反代和域名），确认方案后代为执行部署与验证；浏览器初始化、输密码等环节仍需你亲自操作。runbook 见 [aideploy.md](aideploy.md)。
+
 ### Docker · 一键（推荐）
 
 ```bash

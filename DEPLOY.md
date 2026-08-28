@@ -5,9 +5,11 @@ Hotify Server 是单二进制 Go 服务，零外部依赖（数据库/缓存全�
 | 路线 | 适合 | 产物 |
 |---|---|---|
 | **A. Docker**（推荐，可一键） | Linux 服务器 / NAS / 群晖 | 容器镜像（amd64 + arm64） |
-| **B. binary** | Windows 裸机 / 不使用 Docker | Release 附件 exe（当前仅 Windows amd64；Linux 请走 Docker） |
+| **B. binary** | Windows 裸机 / 不使用 Docker / Linux 无容器环境 | Release 附件单文件二进制（6 平台：windows/linux/darwin × amd64/arm64 + linux-armv7；Linux 裸跑常驻的 systemd 模板见 [aideploy.md](aideploy.md) §3.4） |
 
 > 离线推送分两路：华为系设备经项目方公共推送云函数中转至华为推送服务；iPhone（Bark App）由服务器直连 Apple APNs 送达（经 Apple，不经项目方）。纯在线使用（WebSocket 实时收发）不经过任何第三方。
+
+> 🤖 在用 AI 助手（Claude Code / Codex 等）？让它读 [aideploy.md](aideploy.md)——它按 runbook 问你几个问题（部署到哪 / Docker 还是二进制 / 有没有反代），与你确认方案后代为执行部署与验证（浏览器初始化、密码输入等环节仍需你操作）；本机、远程 SSH、Docker 与二进制均支持。
 
 ---
 
@@ -62,6 +64,10 @@ environment:
 | `/data/cli-token` | 内部管理文件（勿删） |
 
 若改用 bind mount（`-v ./data:/data`），先 `chown -R 10001:10001 ./data`（容器内以 uid 10001 运行）。
+
+> 卷名已在 compose 中固定（`name: hotify-data`），不随部署目录变，备份/迁移直接引用。更早的测试部署卷名带 `<目录名>_hotify-data` 前缀：升级 compose 后首启会新建空的 `hotify-data` 卷，旧测试数据仍在旧卷（`docker volume ls` 可见），可弃或自行迁移。
+
+> 本 compose 为**单机单实例**设计（容器名/端口/卷名固定）：同机原样再起会因容器名冲突中止，不伤在跑实例。同机多实例（多用户各一套独立数据）：复制 compose 后三处同改——`container_name`、宿主端口、卷名（service 挂载 + 顶层 `volumes:` 键 + `name:`）——漏改卷名的第二实例会被 bbolt 文件锁拒绝（起不来，不会互踩数据）。
 
 ### 备份 / 恢复 / 迁移
 

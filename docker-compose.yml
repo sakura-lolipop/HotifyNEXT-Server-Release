@@ -45,3 +45,4 @@ services:
 
 volumes:
   hotify-data:
+    name: hotify-data # 固定卷名（默认会带项目前缀 <目录名>_hotify-data）：备份/迁移直接引用 hotify-data

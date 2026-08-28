@@ -74,6 +74,7 @@ services:
 
 volumes:
   hotify-data:
+    name: hotify-data # 固定卷名（备份/迁移直接引用，不带项目前缀）
 EOF
 }
 
