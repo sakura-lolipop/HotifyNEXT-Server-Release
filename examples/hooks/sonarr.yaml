@@ -1,0 +1,212 @@
+# Hotify 插件：Sonarr 剧集入库通知（哪部剧 / 哪集 / 画质，手机推送）。
+# 行为基线 = Sonarr 发送侧源码（github.com/Sonarr/Sonarr，tag v4.0.19.2979 = 当前稳定版，2026-08-28 查证；
+# v5-develop 分支同形）：src/NzbDrone.Core/Notifications/Webhook/ 下——
+#   WebhookProxy.cs    发送方式：POST（默认）/PUT + Content-Type application/json；**零签名、零自动 header**
+#                      （不发 X-Api-Key——那是 Sonarr 自身 REST API 的鉴权，与 webhook 出站无关）；
+#                      可选 HTTP Basic（Username/Password）+ 自定义 Headers 列表（Advanced 设置）。
+#   WebhookSettings.cs 全部配置项：URL / Method / Username / Password / Headers——**无 body 模板项**，
+#                      body 由事件类型定死 → 本插件 examples 走捕获型（hooks.md §5）。
+#   WebhookEventType.cs + WebhookBase.cs 事件全集 11 种（Test/Grab/Download/Rename/SeriesAdd/SeriesDelete/
+#                      EpisodeFileDelete/Health/ApplicationUpdate/HealthRestored/ManualInteractionRequired）
+#                      及各事件 payload 构造。
+#   …/NzbDrone.Common/Serializer/Newtonsoft.Json/Json.cs  序列化契约：camelCase 属性名（CamelCasePropertyNames
+#                      ContractResolver）+ null 字段整个省略 + DateTime UTC ISO；但 WebhookEventType 自带
+#                      attribute 级 DefaultNamingStrategy 枚举转换 → **值是 PascalCase "Download"**。
+#   frontend …/NotificationEventItems.js + en.json  触发开关的真实 UI 文案（"On File Import" 等）。
+#   官方 wiki（wiki.servarr.com/sonarr/settings#connections）为 JS 渲染页，抓取拿不到正文；按 hooks.md §10
+#   优先级以源码为准（memos/Grafana 两次实证文档可落后于代码）。
+#
+# ── 部署（5 步 + 1 验证，可照抄）────────────────────────────────────────────
+# 1. 本文件复制到 Hotify 工作目录 hooks/ 下。
+# 2. 设环境变量 HOOKS_SONARR_SECRET = 自选随机串（如 `openssl rand -hex 16` 的输出；docker 部署走 compose
+#    environment: 块——GUI 部署不吃 .env，hooks.md §3.5），重启 server；启动自检绿 = 装好。
+# 3. Sonarr → Settings → Connect → +（Add Connection）→ 选 "Webhook"：Name 随意（如 Hotify）；
+#    URL = https://<你的-hotify-域名>/hooks/sonarr；Method = POST（默认）。
+# 4. 同页点 "Show Advanced" 展开，Headers 加一行：Key = X-Hotify-Token，Value = 第 2 步同一串。
+#    （Sonarr 不做任何签名，裸形态属 hooks.md §3.4 none 族；源端支持自定义 header，按 §3.4 指引
+#    塞 token 走 static-token「自己发密码」永远更优。）
+# 5. Notification Triggers：只勾 "On File Import"（勾后其下出现子开关 "On File Upgrade"，升级也
+#    想收就一并勾）。⚠️ "On Import Complete" **别勾**：它同样发 eventType=Download 但 payload 形状不同
+#    （episodeFiles 复数字段、无 episodeFile 单数）→ 本插件提取失败、只剩 stdout 日志不产通知。
+#    其余开关（On Grab / On Rename / …）全不勾——勾了也只是被 filter 静默拒收（200+fileOnly log），不炸。
+# 验证（hooks.md §10c）：连接页点 "Test"——Sonarr 报成功 = URL+header+密钥链路通（Test 事件被 filter
+#    拒收，**手机不响是预期**，该按钮只验证 2xx/401）；端到端真验证 = 互动搜索/手动导入让一集真实入库，
+#    手机收到 "[Sonarr] <剧名>（<年份>）下载完成" 即全绿。
+
+# ── 已知边界（hooks/v1 表达力天花板，hooks.md §4.1/§8/§9，刻意封顶非缺陷）────────
+#   - "哪集"的精确集号/集名在 episodes[] 数组套对象里（白名单无下标无循环，§4.1）→ 不可提取；
+#     body 用 episodeFile.relativePath 承载（Sonarr 标准重命名规则的文件名自带 SxxExx 集号），
+#     要精确的逐集列表 → §8 写 Go 皮（照 ntfy.go 的壳加 registerXxxRoutes）。
+#   - 单 filter 单 mapping：升级（isUpgrade=true）与普通下载共用同一模板文案（§9）。
+#   - series.year 对无年份的极端剧会渲染 0（DefaultValueHandling.Include，int 恒序列化；真实剧集罕见）。
+#   - v3 旧版 Sonarr（已 EOL）payload 属性名是 PascalCase（"EventType"），本 filter 键是 v4+ camelCase；
+#     若真遇上 v3：全部 filter miss，fileOnly log 带观察值一眼可诊（hooks.md §4.2）。
+
+id: sonarr                     # URL 段 POST /hooks/sonarr；secret 变量名 HOOKS_SONARR_SECRET 由它推导（hooks.md §3.5）
+apiVersion: hooks/v1
+
+# 验签：Sonarr webhook 出站零签名（WebhookProxy.cs 只设 Accept/ContentType/可选 Basic/自定义 Headers）
+# → 本可落 §3.4 none 族，但源端支持任意自定义 Headers（WebhookSettings.Headers），
+#   按 §3.4 指引"塞个 token 走 §3.3 永远更优" → static-token。
+# header 名避开 Authorization（§3.3：防中间层/反代剥改），自定义名最稳；值与密钥整串全等比较。
+verify:
+  type: static-token
+  header: X-Hotify-Token       # ← 对应部署步骤 4 里 Sonarr 侧的同名 header
+
+# 事件筛选：判别字段 eventType 在 JSON body（Sonarr 不发任何事件 header）→ filter 可表达，
+# 是第一道防线（与 GitHub 的 header 判别 + 源端订阅兜底正相反，hooks.md §10.1b）。
+# ⚠️ 大小写双向陷阱：键 camelCase（全局序列化契约）、值 PascalCase（枚举 attribute 级
+# DefaultNamingStrategy 覆盖全局 camelCase enum 转换）——写成 $.EventType 或 "download" 都 = 永久
+# filter miss（fileOnly log 带实际观察值，grep 可修）。
+filter:
+  equals:
+    $.eventType: Download
+
+# 通知内容（场景：哪部剧哪集）：
+#   title = 剧名 + 年份（series 恒非 null、title/year 恒序列化——WebhookBase GetSeries + struct 字段，零缺场）。
+#   body  = 入库文件相对路径（自带 SxxExx 集号——"哪集"的标量载体）· 画质名（Quality.Quality.Name，恒 string）。
+#           刻意不引用 releaseGroup/sceneName 等 nullable 字段：body 是主体（§4.3），一个占位符烂全条作废。
+#   url   = applicationUrl（Sonarr Settings→General→Application URL 配的根地址）——装饰字段（§4.3）：
+#           未配置时是空串（string 非 null 不会被省略）→ 渲染为空链接照发，无害。
+#   episodes[] 精确集列表不可提取（对象数组，§4.1），见文件头已知边界。
+mapping:
+  title: "[Sonarr] {{$.series.title}}（{{$.series.year}}）下载完成"
+  body: "{{$.episodeFile.relativePath}} · {{$.episodeFile.quality}}"
+  url: "{{$.applicationUrl}}"
+
+# 投递目标："" = 广播全部设备（hooks.md §10 默认）；要单台改成自己的 slug 或 uuid。禁止 key1。
+device: ""
+
+# 样例（捕获型：Sonarr webhook body 无模板化配置，wire 由事件类型定死，hooks.md §5 铁律逐字段溯源）——
+# 形状推导自 WebhookImportPayload/WebhookSeries/WebhookEpisode/WebhookEpisodeFile + Json.cs 序列化契约
+# （camelCase 键、null 省略、枚举串化、DateTimeZoneHandling.Utc）；真实 payload 另含 release/
+# customFormatInfo/mediaInfo/genres/images 等数十字段，未引用不逐个钉值（github 样板先例：列入只添
+# 编造风险）；tvdbId/size 等具体数值按真实形态构造（降级档：字段值各有官方出处=源码类型+示例语义，
+# 整体形状拼装）。airDate/dateAdded 加引号防 YAML 把它解析成日期类型。
+examples:
+  # 正样本 1：单集下载入库（On File Import 触发的 Download 事件，最常见形态）。
+  - name: episode-downloaded
+    body:
+      eventType: Download
+      instanceName: Sonarr                     # InstanceName 配置默认 = BuildInfo.AppName
+      applicationUrl: https://sonarr.example.com
+      series:
+        id: 1
+        title: The Expanse
+        titleSlug: the-expanse
+        path: /tv/The Expanse
+        tvdbId: 280289
+        tvMazeId: 0                            # int 默认值也序列化（DefaultValueHandling.Include）
+        tmdbId: 0
+        year: 2015
+        genres: [Drama, Science Fiction]
+        tags: []
+      episodes:
+        - id: 12
+          episodeNumber: 2
+          seasonNumber: 1
+          title: The Big Empty
+          airDate: "2015-12-02"
+          seriesId: 1
+          tvdbId: 5727823
+      episodeFile:
+        id: 45
+        relativePath: Season 01/The Expanse - S01E02 - The Big Empty.mkv
+        path: /tv/The Expanse/Season 01/The Expanse - S01E02 - The Big Empty.mkv
+        quality: WEBDL-1080p                   # episodeFile.Quality.Quality.Name，恒 string
+        qualityVersion: 1
+        releaseGroup: EXAMPLE
+        sceneName: The.Expanse.2015.S01E02.The.Big.Empty.1080p.WEBDL.EXAMPLE
+        size: 3242455698
+        dateAdded: "2026-08-28T10:00:00Z"
+        languages: [english]                   # Language 枚举走全局 camelCase 转换 → 小写串
+      isUpgrade: false
+      downloadClient: SABnzbd
+      downloadClientType: Usenet
+      downloadId: SABnzbd_nzo_QmVjcw
+    expect:
+      pass: true
+      title: "[Sonarr] The Expanse（2015）下载完成"
+      body: "Season 01/The Expanse - S01E02 - The Big Empty.mkv · WEBDL-1080p"
+  # 正样本 2：升级入库（On File Upgrade 子开关触发——同为 Download 事件、isUpgrade=true，模板共用）。
+  # 裁剪版：仅渲染引用字段+代表性结构（升级事件另有 deletedFiles 数组，未引用不列）。
+  - name: episode-upgraded
+    body:
+      eventType: Download
+      instanceName: Sonarr
+      applicationUrl: https://sonarr.example.com
+      series:
+        id: 1
+        title: The Expanse
+        year: 2015
+        tvdbId: 280289
+      episodes:
+        - id: 31
+          episodeNumber: 9
+          seasonNumber: 1
+          title: Critical Mass
+          seriesId: 1
+          tvdbId: 5727830
+      episodeFile:
+        id: 46
+        relativePath: Season 01/The Expanse - S01E09 - Critical Mass.mkv
+        path: /tv/The Expanse/Season 01/The Expanse - S01E09 - Critical Mass.mkv
+        quality: Bluray-1080p
+        qualityVersion: 1
+        releaseGroup: EXAMPLE
+        size: 8422455698
+        dateAdded: "2026-08-28T11:30:00Z"
+        languages: [english]
+      isUpgrade: true                          # message.OldFiles 非空 → true
+      downloadClient: qBittorrent
+      downloadClientType: Torrent
+      downloadId: f5c1e0a2b3d4918e77aa06c4421b9d03e5a7f812
+    expect:
+      pass: true
+      title: "[Sonarr] The Expanse（2015）下载完成"
+      body: "Season 01/The Expanse - S01E09 - Critical Mass.mkv · Bluray-1080p"
+  # 负样本 1：连接页 "Test" 按钮必发（WebhookBase.BuildTestPayload 逐字段钉值：Test Title / C:\testpath /
+  # tvdbId 1234 / 单集 id 123 "Test title"；未设字段如 release/downloadClient 为 null 被省略）→ filter 拒。
+  # 手机不响是预期；Sonarr 侧仍显示测试成功（收到 200）——Test 只验证链路与密钥，不是通知测试。
+  - name: test-button-filtered
+    body:
+      eventType: Test
+      instanceName: Sonarr
+      applicationUrl: ""
+      series:
+        id: 1
+        title: Test Title
+        path: 'C:\testpath'
+        tvdbId: 1234
+        tags: [test-tag]
+      episodes:
+        - id: 123
+          episodeNumber: 1
+          seasonNumber: 1
+          title: Test title
+    expect:
+      pass: false
+  # 负样本 2：On Grab 误开时到达的 Grab 事件（有 release 无 episodeFile，此处未引用不列）→ filter 拒。
+  - name: grab-event-filtered
+    body:
+      eventType: Grab
+      instanceName: Sonarr
+      applicationUrl: https://sonarr.example.com
+      series:
+        id: 1
+        title: The Expanse
+        year: 2015
+        tvdbId: 280289
+      episodes:
+        - id: 55
+          episodeNumber: 3
+          seasonNumber: 2
+          title: Static
+          airDate: "2017-02-08"
+          seriesId: 1
+          tvdbId: 6012345
+      downloadClient: SABnzbd
+      downloadClientType: Usenet
+      downloadId: SABnzbd_nzo_abc123
+    expect:
+      pass: false

@@ -1,0 +1,162 @@
+# Hotify 插件：Jellyfin 媒体库新入库通知（什么内容进库了）。
+# 源 = 官方 Webhook 插件 github.com/jellyfin/jellyfin-plugin-webhook（master@2026-08-28 查证，
+# 现行发行 v21 / 2026-05-05；Jellyfin 核心自身无 webhook 能力，此插件是唯一官方通道）。
+# 行为基线 = 发送侧源码：
+#   Destinations/Generic/GenericClient.cs —— POST，body = Handlebars 模板渲染结果（Template
+#     选项，UI 侧 base64 存取），Content-Type 默认 text/plain（Headers 网格可覆盖），无任何
+#     签名，支持任意自定义 Request Header；
+#   Helpers/DataObjectHelpers.cs —— 变量构造：NotificationType 恒为字符串枚举名（"ItemAdded"），
+#     Name/ItemType/RunTime/ItemId/ServerUrl 恒存在，Year/SeriesName/SeasonNumber00/EpisodeNumber00
+#     按条目类型条件存在；注意 {{X}} 会被 Handlebars HTML 转义（官方模板对自由文本用 {{{X}}}），
+#     {{json_encode X}} 是官方钦定的 JSON 安全通道（WriteSafeString + JsonEncodedText）；
+#   Helpers/HandlebarsFunctionHelpers.cs —— if_equals / if_exist / json_encode 助手定义
+#     （json_encode 喂 null 会抛异常 = 源端整条不发）；
+#   WebhookSender.cs —— 目的地两道门：Notification Type 复选 + Item Type 复选
+#     （ItemAdded 传入 itemType，Enable* 全不勾 = 静默不发）；
+#   Notifiers/ItemAddedNotifier/* —— ItemAdded 进队列，计划任务每 30s 轮询处理（元数据未就绪
+#     重排队，至多 10 次）；ItemDeletedManager 数据同构（同一 base+item 构造，仅类型名不同）。
+#
+# wire 形态判定（hooks.md §5）：模板型源——body 全文由部署者在源端 Template 配置 → 契约型。
+# canonical body 定义在本文件头（部署指令的一部分），examples = canonical 实例。
+#
+# ── 部署 5 步 ─────────────────────────────────────────────────────────
+# 1) Hotify：本文件放入工作目录 hooks/（Docker 即 /data/hooks，compose 挂 ./hooks:/data/hooks）
+#    + 设环境变量 HOOKS_JELLYFIN_SECRET=<自造随机串>（源端无密钥可抄，自己发明一个；
+#      compose 走 environment: 块——GUI 部署不吃 .env，hooks.md §3.5）。
+# 2) 重启 server，启动自检绿 = 装好。10 秒探针（hooks.md §1）：
+#    curl -X POST https://<你的域名>/hooks/jellyfin  →  401 = 已加载（404 = 路径挂错）。
+# 3) Jellyfin：控制台 → 插件 → Catalog 安装 "Webhook"（已装跳过）→ 插件 Options 页
+#    Server Url 填外网可达根地址（例 https://media.example.com，不带尾斜杠）——通知深链用；
+#    不填则深链渲染源端默认 localhost:8096（无效但无害，见已知边界）。
+# 4) Webhook 插件 → Add Generic Destination，逐项照抄：
+#    - Webhook Url:       https://<你的域名>/hooks/jellyfin
+#    - Status:            Enable 勾上（新目的地默认不发）
+#    - Notification Type: 只勾 "Item Added"（别的事件缺 Name/ItemType 等字段，模板在源端
+#                         渲染即抛错不发；同构的 Item Deleted 即便到达也会被本插件 filter 拒）
+#    - Item Type:         按需勾 Movies / Episodes（或 Season/Series/Albums/Songs/Videos）
+#                         ⚠️ 一个都不勾 = 静默不发（NotifyOnItem 全 false 即拒）
+#    - Template:          整段粘贴下方 canonical 模板原文；不勾 "Send All Properties"
+#                         （那是另一条全字段 JSON wire，与本插件 mapping 契约不同）
+#    - Add Request Header 两次（Key/Value 行）：
+#        X-Hotify-Token  = <与 HOOKS_JELLYFIN_SECRET 完全相同的串，裸值，别加 Bearer>
+#        Content-Type    = application/json
+#      （源端默认 text/plain；Hotify 处理只看 body 是否 JSON，此行是对齐声明的保险）
+# 5) 端到端验证（hooks.md §10 步骤5）：往媒体库目录丢一个新视频文件（或触发扫库），
+#    约 30 秒内手机收到 "[Jellyfin] 新入库 · …"。没收到：先看 Hotify 日志（401 = header 值
+#    与 secret 不等；fileOnly filter log = 事件没过筛），再按插件 README 开
+#    Jellyfin.Plugin.Webhook 的 debug 日志查源端是否发出。
+#
+# canonical body 模板（第 4 步 Template 原文，整段照抄；换行与缩进保留，均为 JSON 合法空白）：
+#   {
+#     "NotificationType": "{{json_encode NotificationType}}",
+#     "Name": "{{json_encode Name}}",
+#     "ItemType": "{{json_encode ItemType}}",
+#     "Detail": "{{#if_equals ItemType 'Episode'}}{{#if_exist SeriesName}}{{json_encode SeriesName}} · {{/if_exist}}S{{SeasonNumber00}}E{{EpisodeNumber00}}{{else}}{{#if_equals ItemType 'Season'}}{{#if_exist SeriesName}}{{json_encode SeriesName}} · {{/if_exist}}S{{SeasonNumber00}}{{else}}{{#if_exist Year}}{{Year}} · {{/if_exist}}{{json_encode RunTime}}{{/if_equals}}{{/if_equals}}",
+#     "RunTime": "{{json_encode RunTime}}",
+#     "Overview": "{{json_encode Overview}}",
+#     "ItemId": "{{json_encode ItemId}}",
+#     "ServerUrl": "{{json_encode ServerUrl}}"
+#   }
+#   契约要点：json_encode 只喂恒非空变量（喂 null 源端抛错整条不发）；Year/SeasonNumber00/
+#   EpisodeNumber00 为纯数字裸用安全；Detail 每个分支必产字符串（可空字段全被 if_exist 包成
+#   ""），Hotify 侧 title/body 引用的 Name/ItemType/Detail 恒存在，零提取失败面。
+#
+# ── 已知边界（hooks/v1 表达力，hooks.md §8/§9）──
+#   - 条件文案（剧集"剧名 · S05E12"/电影"年份 · 时长"）放源端模板 if_equals 分支——
+#     Hotify 单 filter 单 mapping 无表达力，组装放源端模板语言（grafana 样板同款取舍）。
+#   - ItemAdded 非即时：源端 30s 轮询；元数据未就绪顺延（至多 10 轮 ≈ 5 分钟）。
+#   - 不设 priority：入库为信息性通知，无自然分档语义；单 mapping 也无法按 ItemType 分档。
+#   - url 深链 = 官方 Pushover 模板同款 {{ServerUrl}}/web/index.html#!/details?id={{ItemId}}
+#     拼装；url 是装饰字段，ServerUrl 未配置时链接无效但通知照发（hooks.md §4.3）。
+
+id: jellyfin                  # URL 段 POST /hooks/jellyfin；secret 变量名 HOOKS_JELLYFIN_SECRET 由它推导（hooks.md §3.5）
+apiVersion: hooks/v1
+
+# 验签：Generic 目的地零签名（GenericClient 无任何签名逻辑）→ 裸形态本属 §3.4 none 族；
+# 但源端支持任意自定义 Request Header，按 §3.4 指引"塞个 token 走 §3.3 永远更优" → static-token。
+# header 名避开 Authorization（防中间层/反代剥改）；比较的是完整 header 值——Value 填裸串。
+verify:
+  type: static-token
+  header: X-Hotify-Token
+
+# 事件筛选：NotificationType 在 JSON body 里（数据对象顶层，恒为字符串枚举名）→ filter 可用，
+# 不属"判别字段在 header"的 GitHub 困境。源端 Notification Type 复选是第一道门，
+# 这里 equals 精确匹配是第二道（防手滑勾上同构的 ItemDeleted——负样本固化该行为）。
+filter:
+  equals:
+    $.NotificationType: ItemAdded
+
+# 通知内容（全部引用 canonical 契约键，恒存在）：
+#   title = 条目名（剧集=单集标题，电影=片名）
+#   body  = 条目类型 · Detail（Episode→"剧名 · S05E12"；Season→"剧名 · S03"；其余→"年份 · 时长"）
+#   url   = 官方深链形态，两个占位符拼一段（hooks.md §4.3 一条模板可多个占位符）
+mapping:
+  title: "[Jellyfin] 新入库 · {{$.Name}}"
+  body: "{{$.ItemType}} · {{$.Detail}}"
+  url: "{{$.ServerUrl}}/web/index.html#!/details?id={{$.ItemId}}"
+
+# 投递目标："" = 广播全部设备（hooks.md §10 默认）；要单台改成自己的 slug 或 uuid（禁止 key1）。
+device: ""
+
+# 样例（hooks.md §5 契约型：body 全文由部署者按上方 canonical 模板配置，examples = canonical
+# 实例，验证契约自洽）。取值语义逐个钉到源端实现：Name/ItemType 恒在；RunTime 为
+# TimeSpan FromTicks 的 hh:mm:ss 格式；ItemId 为 GUID 字串；SeasonNumber00/EpisodeNumber00
+# 为 "00" 双位补零；Detail 为模板分支渲染结果；条目名与元数据取真实影视
+# （Sopranos S05E12 Long Term Parking / The Matrix 1999 时长 136 分钟）作实例值。
+examples:
+  - name: episode-added
+    body:
+      NotificationType: ItemAdded
+      Name: Long Term Parking
+      ItemType: Episode
+      Detail: The Sopranos · S05E12
+      RunTime: "01:00:10"
+      Overview: Tony struggles to keep a secret.
+      ItemId: "f3a2c1d4-5e6b-4a7c-8d9e-0f1a2b3c4d5e"
+      ServerUrl: https://media.example.com
+    expect:
+      pass: true
+      title: "[Jellyfin] 新入库 · Long Term Parking"
+      body: "Episode · The Sopranos · S05E12"
+  - name: movie-added
+    body:
+      NotificationType: ItemAdded
+      Name: The Matrix
+      ItemType: Movie
+      Detail: 1999 · 02:16:00
+      RunTime: "02:16:00"
+      Overview: A hacker learns the true nature of reality.
+      ItemId: "9c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f"
+      ServerUrl: https://media.example.com
+    expect:
+      pass: true
+      title: "[Jellyfin] 新入库 · The Matrix"
+      body: "Movie · 1999 · 02:16:00"
+  - name: season-added
+    body:
+      NotificationType: ItemAdded
+      Name: Season 3
+      ItemType: Season
+      Detail: The Bear · S03
+      RunTime: "00:00:00"
+      Overview: ""
+      ItemId: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+      ServerUrl: https://media.example.com
+    expect:
+      pass: true
+      title: "[Jellyfin] 新入库 · Season 3"
+      body: "Season · The Bear · S03"
+  # 负样本：ItemDeleted 与 ItemAdded 数据同构（ItemDeletedManager 同一 base+item 构造），
+  # 若部署者在源端误勾了它，到达后过不了 filter → 静默不通知（fileOnly log 带观察值可查）。
+  - name: item-deleted-ignored
+    body:
+      NotificationType: ItemDeleted
+      Name: Long Term Parking
+      ItemType: Episode
+      Detail: The Sopranos · S05E12
+      RunTime: "01:00:10"
+      Overview: ""
+      ItemId: "f3a2c1d4-5e6b-4a7c-8d9e-0f1a2b3c4d5e"
+      ServerUrl: https://media.example.com
+    expect:
+      pass: false

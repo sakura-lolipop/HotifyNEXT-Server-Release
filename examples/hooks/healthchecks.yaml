@@ -1,0 +1,132 @@
+# Hotify 插件：Healthchecks 服务挂了/恢复了通知
+# （翻译自 github.com/healthchecks/healthchecks 的 webhook 通知渠道——自托管健康检查服务，
+#   check 掉线（down）/恢复（up）时向用户预配置的 URL 发 HTTP 请求。无既有桥，行为基线 = 发送侧源码：
+#   master@094855b（2026-08-27）hc/integrations/webhook/transport.py + forms.py + hc/api/models.py::webhook_spec
+#   + hc/front/views.py::send_test_notification。）
+#
+# ── 源端事实（本模板全部决策的依据）────────────────────────────────────────────
+# · 一个 webhook 通道 = 两份独立配置：down（挂）/up（恢复）各配 method/url/headers/body，
+#   默认 method=GET 且 GET 不发 body（forms.py WebhookForm initial="GET"；
+#   transport.py `if body and spec.method in ("POST", "PUT")`）——两份都要改成 POST 并填 body。
+# · body 是「用户模板」：占位符单遍替换（hc/lib/string.py::replace，值为 "$" 开头的 token 会被
+#   前缀误替换——下方的 token 选用字母数字即可免疫）。
+# · 源端【无任何签名机制】：headers 只由用户配置产生（transport.py notify 的 headers 循环），
+#   传输层（hc/api/transports.py::_request）不追加任何头 → standard-webhooks/hmac 两族无源可配。
+#   但 headers 支持任意自定义「Name: value」对 → 部署者可自带一个静态 token 头 = static-token 族。
+#   （hooks.md §3.4：能用前三族就别用 none——本模板据此选 static-token，而非裸奔。）
+# · $STATUS = flip.new_status，源端 assert 仅取 "up"/"down"（models.py::webhook_spec）；
+#   只有 up/down 翻转才触发通知（Flip.get_channels_for_flip 对其他值 NotImplementedError）。
+# · $NAME 是裸字符串（名字含引号会直接炸 JSON）；$NAME_JSON = json.dumps(check.name)，天然 JSON 安全
+#   ——canonical body 一律用 $NAME_JSON。$CODE 是 check 的 UUID，$NOW 是翻转时刻的 UTC ISO 时间串
+#   （USE_TZ=True → 带时区偏移）。
+#
+# ── 排障 ──────────────────────────────────────────────────────────────────────
+# · 判据行：`[hooks] healthchecks delivered`（stdout，docker logs 可见——启动时另有
+#   `[hooks] loaded N plugin(s): …` 确认行，N=0 = 目录没被看到）
+# · 日志位置：本机=工作目录 hotify.log；docker=/data/hotify.log（filter miss/401 只在文件道，
+#   docker logs 看不到——进 volume 找）
+# · 探针 404 双形态：POST /hooks/healthchecks → 404 body=unknown hook = 插件没加载（docker 检查
+#   ./hooks:/data/hooks 挂载）；404 body=not found = 请求形状错（用了 GET/路径拼错）
+# · 验证前置：至少一台设备已 onboard——0 设备时链路全绿（delivered 照打）但没人收到推送
+#
+# ── 部署三步 ──────────────────────────────────────────────────────────────────
+# 1. 本文件放进工作目录 hooks/ 下（docker 部署：compose 挂载 ./hooks:/data/hooks——挂错路径
+#    = 静默零插件，404 探针可确认）；设环境变量 HOOKS_HEALTHCHECKS_SECRET（hooks.md §3.5：
+#    变量名由 id 推导；Docker/GUI 部署写 environment: 块，.env 只有 CLI compose 认）；重启 server。
+#    密钥值用纯字母数字串（避开 "$" 防占位符前缀误替换；header 名限 latin-1（forms.py）、
+#    值经 latin-1 转换（transport.py），字母数字对两者都免疫）。
+# 2. Healthchecks 网页 → 项目 → Integrations → Add Webhook，down 和 up 两份都照抄：
+#    ⚠️ 私网部署必配（新版 HC 的 SSRF 防护挡私有 IP，自托管 Hotify 几乎必在私网——不配则
+#    "Connections to private IP addresses are not allowed"，一条都发不出）：给 healthchecks
+#    容器加环境变量 INTEGRATIONS_ALLOW_PRIVATE_IPS=True（memos 同款坑叫
+#    MEMOS_ALLOW_PRIVATE_WEBHOOKS=true——源端 SSRF 防护是自托管通病）。
+#      method 选 POST；URL 填 https://<你的-Hotify>/hooks/healthchecks
+#      Request Headers 填一行：X-Hotify-Token: <与 HOOKS_HEALTHCHECKS_SECRET 相同的值>
+#      Request Body 填（down/up 两份【完全相同】，$STATUS 自动区分）：
+#        {"name": $NAME_JSON, "status": "$STATUS", "code": "$CODE", "now": "$NOW"}
+# 3. 点该通道的 "Test!" 按钮端到端验证：源端用 name="TEST"/status=down 的假翻转发一条真请求
+#    （views.py::send_test_notification），手机应收到「Healthchecks down · TEST」。
+#
+# ── 已知取舍（hooks.md §9：单 filter 单 mapping，事件分文案 v1 不支持）──────────
+# · down/up 共用一条 mapping：标题里的 down/up 即事件判别，无法出现两套中文文案；
+#   priority=4 对恢复事件同样生效。要分文案/分优先级：再放一个文件（如 id: healthchecks-up、
+#   filter 钉 $.status: up、URL 填 /hooks/healthchecks-up）——源端 down/up 本就是两个独立 URL，
+#   天然支持拆分。
+# · mapping.url（点开跳转）默认不设：深链 = {你的HC实例}/checks/{code}/details/，实例域名是
+#   部署者私有信息，模板无法预填；且深链价值有限（url 属装饰字段，缺失本可省略照发——hooks.md §4.3，nullable 引用是安全的，不设是取舍非必须）。
+#   需要时：body 模板加一项 "url":"https://<你的HC实例>/checks/$CODE/details/"，并把下方
+#   mapping.url 注释行解注。
+# · check.name 为空字符串时源端照发（transport.py 无回退），本模板标题/正文含固定前缀，仍产出通知。
+
+id: healthchecks            # URL 段 POST /hooks/healthchecks；secret 变量名 HOOKS_HEALTHCHECKS_SECRET 由它推导（hooks.md §3.5）
+apiVersion: hooks/v1
+
+# 验签：源端无签名（见文件头），但支持自定义静态头 → static-token 族（hooks.md §3.3）：
+# 请求头 X-Hotify-Token 的值 == HOOKS_HEALTHCHECKS_SECRET（常数时间比较）即放行。
+verify:
+  type: static-token
+  header: X-Hotify-Token
+
+# 事件筛选：本插件不写 filter 段（hooks.md §2：不写 = 所有事件都推）。源端事件全集 =
+# {down, up} 两种，场景两者都要（挂了/恢复了），没有需静默的第三种事件 → 无可筛之物。
+# （故意不写 `filter: {}`：规则只定义了「不写」，空对象语义未定义，不赌。）
+# 误推的下限保护：static-token 已把无关 POST 挡在门外；鉴权后到达的 body 只可能来自本模板。
+
+# 通知内容（wire 契约 = 部署第 2 步的 canonical body，四个字段全部源端保证存在且 JSON 安全）：
+#   $.status ∈ {up, down}（models.py assert）；$.name 经 $NAME_JSON 保证是合法 JSON 字符串；
+#   $.code = check UUID；$.now = 翻转时刻 UTC ISO 串。
+mapping:
+  title: "Healthchecks {{$.status}} · {{$.name}}"
+  body: "{{$.name}} → {{$.status}}（{{$.now}}）"
+  priority: "4"             # down 属紧急告警；up（恢复）沿用同一 priority（分优先级须拆第二个插件，见文件头）
+  # url: "{{$.url}}"        # 可选深链：需先在 body 模板补 url 字段（见文件头「已知取舍」），否则勿解注
+
+# 投递目标："" = 广播全部设备（hooks.md §2）。Healthchecks 的 webhook 是项目级通道，无单设备语义；
+# 想只推一台就改成自己的 slug 或 uuid。禁止填 key1。
+device: ""
+
+# 样例（hooks.md §5 铁律：源自真实信息，非手写想象）——不是凭空编：源端没有固定 payload，
+# body 全文由部署者模板决定，本插件发布的 canonical body 就是 wire 契约；各字段取值语义全部
+# 推导自发送侧源码（transport.py prepare 的占位符表 + views.py 测试通知的假翻转常量）。
+# 名字含引号/中文的样本专门验证 $NAME_JSON 的 JSON 安全性（用 $NAME 会被名字里的引号炸掉 JSON）。
+examples:
+  - name: down-flip                   # check 超时未 ping → down 翻转（最常见路径：models.py "timeout" reason）
+    body:
+      name: 数据库备份
+      status: down                    # $STATUS = flip.new_status，仅 up/down
+      code: a1c3f5b0-9d2e-4c8a-b7f6-3e5d1a2c4b6e   # $CODE = check UUID
+      now: "2026-08-28T09:30:00+00:00"             # $NOW = flip.created 去微秒 ISO（USE_TZ=True → UTC 带偏移）
+    expect:
+      pass: true
+      title: "Healthchecks down · 数据库备份"
+      body: "数据库备份 → down（2026-08-28T09:30:00+00:00）"
+  - name: up-flip                     # 同一 check 恢复 → up 翻转（场景的「恢复了」半边）
+    body:
+      name: 数据库备份
+      status: up
+      code: a1c3f5b0-9d2e-4c8a-b7f6-3e5d1a2c4b6e
+      now: "2026-08-28T10:05:00+00:00"
+    expect:
+      pass: true
+      title: "Healthchecks up · 数据库备份"
+      body: "数据库备份 → up（2026-08-28T10:05:00+00:00）"
+  - name: name-with-quotes            # check 名含双引号：$NAME_JSON 渲染成合法 JSON，解析后名字原样
+    body:
+      name: 'Backup "nightly"'
+      status: down
+      code: 0f2e4d6c-8a9b-4c1d-9e7f-2b3a5c7e9d0f
+      now: "2026-08-28T11:00:00+00:00"
+    expect:
+      pass: true
+      title: 'Healthchecks down · Backup "nightly"'
+      body: 'Backup "nightly" → down（2026-08-28T11:00:00+00:00）'
+  - name: test-button                 # 源端 "Test!" 按钮的假翻转：name 恒为 "TEST"、status 先试 down（views.py:1302）
+    body:
+      name: TEST
+      status: down
+      code: 12345678-1234-1234-1234-123456789abc
+      now: "2026-08-28T12:00:00+00:00"
+    expect:
+      pass: true
+      title: "Healthchecks down · TEST"
+      body: "TEST → down（2026-08-28T12:00:00+00:00）"

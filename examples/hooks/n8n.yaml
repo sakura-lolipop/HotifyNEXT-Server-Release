@@ -1,0 +1,111 @@
+# Hotify 插件：n8n 工作流通知（工作流任意一步 → HTTP Request 节点 → 手机推送）。
+# 行为基线 = n8n 官方文档（docs.n8n.io，2026-08-28 查证）：
+#   - HTTP Request 节点参考页：7 种 method 含 POST；自定义 header = Send Headers → Specify Headers:
+#     Using Fields Below → Header Parameters（Name/Value 对，Add Parameter 加行）；body = Send Body →
+#     Body Content Type: JSON → Specify Body: Using JSON（JSON 文本+n8n 表达式）或 Using Fields Below（名值对）。
+#   - 表达式参考页：{{ $json.字段 }} 取上游节点数据；toJsonString() = 官方 JSON 安全转义（等价
+#     JSON.stringify，转义引号/换行并裹引号）；$ifEmpty(v, 默认值) = 缺字段兜底。
+#   发送侧源码核验（github.com/n8n-io/n8n，packages/nodes-base/nodes/HttpRequest/V3/
+#   HttpRequestV3.node.ts）：JSON 是 body 序列化的默认路径（multipart/form-urlencoded/binaryData/raw
+#   才走特判分支），节点内无任何请求签名逻辑。
+#
+# ── 源形态：模板型 → examples 用契约型（hooks.md §5）───────────────────
+# n8n 发什么 body 由你的工作流决定（HTTP Request 节点里配的模板），n8n 本身不定 wire 格式。
+# 本插件定义 canonical body 契约（部署指令的一部分，照抄即得）：
+#   { "title": <string 必填——通知标题>,
+#     "message": <string 必填——通知正文>,
+#     "url": <string 可选——点开跳转，装饰字段>,
+#     "priority": <number 1-5 可选——装饰字段> }
+#   - title/message 缺失 → 整条静默丢（200 + stdout log 可查；负样本 no-message-dropped 固化该行为）
+#     ——部署者最易犯的错（在 n8n 里删了字段行），收不到通知先查这里。
+#   - url/priority 缺失 → 省略照发（hooks.md §4.3 分级：装饰字段，nullable 安全）。
+#   - 单条 body > 1MB → 413（hooks.md §6，与 bark/gotify/ntfy 入口同限）。
+#
+# ── 部署（5 步，照抄；人+AI 双读者）────────────────────────────────────
+# 1. Hotify：本文件放工作目录 hooks/ 下（Docker：/data/hooks，compose 挂 ./hooks:/data/hooks）。
+# 2. Hotify：设环境变量 HOOKS_N8N_SECRET=<自造随机串>（docker 走 compose environment: 块，
+#    GUI 部署不吃 .env，hooks.md §3.5）。
+# 3. Hotify：重启 server。10 秒探针（hooks.md §1）：
+#    curl -X POST https://<你的域名>/hooks/n8n → 401 = 已加载（404 = hooks 目录挂错，静默零插件）。
+# 4. n8n：工作流里加一个 HTTP Request 节点，配四项（参数名即节点内可搜索的开关名）：
+#    Method:       POST
+#    URL:          https://<你的 Hotify 域名>/hooks/n8n
+#    Send Headers: 开 → Specify Headers: Using Fields Below → Add Parameter：
+#                  Name: X-Hotify-Token    Value: <与 HOOKS_N8N_SECRET 完全相同的串>
+#                  （整值相等比较——不要加 "Bearer " 前缀。等价做法：Authentication 选 Generic
+#                   Credential Type → Header Auth，Name/Value 同上——多一步建凭证，单工作流无必要）
+#    Send Body:    开 → Body Content Type: JSON → Specify Body: Using JSON，粘贴后改字段名：
+#                  {
+#                    "title": "审批通过",
+#                    "message": "订单 {{ $json.orderId }} 已通过审批",
+#                    "url": "{{ $json.url }}"
+#                  }
+#                  ——{{ ... }} 是 n8n 表达式，发送前由 n8n 求值，Hotify 收到的已是求值后的纯 JSON；
+#                    url/priority 行没有就整行删掉（删行=省略字段，比留空串干净）；
+#                    动态值可能含引号/换行时，该值整块写成 {{ $json.字段.toJsonString() }}（外面
+#                    不要再裹引号）——n8n 官方转义函数，防 body 变非法 JSON；
+#                    引用可能缺的字段用 {{ $ifEmpty($json.字段, "") }} 兜底。
+# 5. 验证（hooks.md §10 步骤 5）：n8n 里点 Execute workflow（或该节点 Test step）→ 手机收到推送、
+#    server log 出现 [hooks] delivered。排障分流：节点红报 401 = header 值与 secret 不等；
+#    节点绿但没收到 = body 违反 canonical 契约（漏 title/message——查 server stdout log）。
+# 备注：n8n 云版要求 Hotify 域名公网可达；自托管 n8n 可走内网地址。多个工作流推同一 URL：
+#   各自重复第 4 步即可（第 1-3 步只做一次）。要只推一台设备：把下方 device 改成设备 slug 或 uuid。
+
+id: n8n                       # URL 段 POST /hooks/n8n；secret 变量名 HOOKS_N8N_SECRET 由它推导（hooks.md §3.5）
+apiVersion: hooks/v1
+
+# 验签：n8n HTTP Request 节点无请求签名能力（官方文档与发送侧源码均无 HMAC / 标准 webhook 签名）
+# → 四族里实际可选 none / static-token；节点支持任意自定义 header（Send Headers），按 hooks.md §3.4
+# 「源端能自定义 header 时塞个 token 走 §3.3 永远更优」→ static-token。
+# header 名避开 Authorization（hooks.md §3.3：防中间层/反代剥改，裸值走自定义名最稳）。
+# （n8n 理论上可用 Crypto 节点算 HMAC 再塞 header，但 hmac 族验的是最终 raw body 字节，
+#  workflow 里「拼 JSON 文本 → 签名 → 原样发送」两处模板必漂移，不值得；static-token 已覆盖单用户威胁模型。）
+verify:
+  type: static-token
+  header: X-Hotify-Token
+
+# 事件筛选：不写。这扇门就是「通知门」——部署者把 HTTP Request 节点接在工作流哪一步，哪一步就
+# 发通知；body 是部署者自定义模板（无事件类型字段可筛），每个过验签的 POST = 一条通知，语义自洽。
+filter: {}                    # 空 equals ≡ 不写（hooks.md §4.2），显式写出以示权衡过（uptime-kuma 样板同款）
+
+# 通知内容：canonical 契约字段直映射（契约定义见文件头）。
+# title/message = 主体：契约必填，缺失 = 整条丢（200 + stdout log，hooks.md §4.3）。
+# url/priority = 装饰：契约可选，缺失 = 省略照发。
+mapping:
+  title: "{{$.title}}"
+  body: "{{$.message}}"
+  url: "{{$.url}}"
+  priority: "{{$.priority}}"  # YAML 字符串，引号别省（裸 4 = 加载 fatal，hooks.md §4.3）；number 自动字符串化落 Ext["priority"]
+
+# 投递目标："" = 广播全部设备（hooks.md §10 默认）。要单台改 slug 或 uuid；禁止 key1（hooks.md §2）。
+device: ""
+
+# 样例（契约型，hooks.md §5：n8n 无固定 wire，examples = canonical body 的实例——部署者照文件头
+# 第 4 步配出的任何真实事件必然渲染出 expect 结果，验的是契约自洽而非源端现实）。
+# 字段取值语义钉到源端占位符实现：{{ $json.字段 }} 的求值产物即字段值（toJsonString 保 JSON 合法），
+# 例中直接写求值后的形态。负样本 no-message-dropped 是契约违例形态（部署者控制 body，漏字段是
+# 真实可能形状，非凭空编造），等价于捕获型源的 filter-miss 负样本。
+examples:
+  - name: approval-with-url-priority      # 完整契约：四字段全带
+    body:
+      title: 审批通过
+      message: 订单 ORD-1024 已通过审批
+      url: https://erp.example.com/orders/ORD-1024
+      priority: 4                          # number → 渲染 "4" 落 Ext（expect 只断言 title/body，hooks.md §5）
+    expect:
+      pass: true
+      title: 审批通过
+      body: 订单 ORD-1024 已通过审批
+  - name: minimal-title-message           # 最小契约：只有两个必填字段；url/priority 缺席 = 省略照发
+    body:
+      title: 每日数据摘报
+      message: 今日新增 12 条记录
+    expect:
+      pass: true
+      title: 每日数据摘报
+      body: 今日新增 12 条记录
+  - name: no-message-dropped              # 契约违例：漏 message → $.message 缺失 = 主体提取失败
+    body:                                 # → 200 + stdout log、不产通知（部署者最易犯的错，固化该行为）
+      title: 审批通过
+    expect:
+      pass: false

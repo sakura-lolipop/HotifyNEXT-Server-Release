@@ -1,0 +1,54 @@
+# Hotify webhook 插件样板（语法教学用假想源，非真实服务）。
+# 规则全文见仓根 hooks.md——本文件是"照着抄"的最小完整例。
+# 安装：复制到工作目录 hooks/ 下 + 设 HOOKS_ECHO_SECRET 环境变量 + 重启 server。
+# （examples/hooks/ 只是样例仓，server 只加载工作目录的 ./hooks/，发行版不预装插件）
+
+id: echo                     # URL 段：POST /hooks/echo；secret 变量名由它推导
+apiVersion: hooks/v1         # 引擎不认识的版本会拒绝加载
+
+# 身份验证——四族选一（standard-webhooks / hmac / static-token / none，见 hooks.md §3）。
+# 这里用 static-token 演示带参数的族：请求头 X-Echo-Token 的值 == HOOKS_ECHO_SECRET 即放行。
+verify:
+  type: static-token
+  header: X-Echo-Token
+
+# 事件筛选（可选，不写=全推）。多键 AND；期望值与 payload 同类型才比（5 ≠ "5"）。
+# 两个键都相等才推；不匹配=静默忽略（源端发别的事件很正常）。
+filter:
+  equals:
+    $.type: notify           # string 期望值
+    $.priority: 5            # number 期望值（YAML 原生类型，不引号）
+
+# 通知内容：固定字符串 + {{$.路径}} 占位符混排；一条里可多个占位符。
+# 渲染分级（hooks.md §4.3）：主体（title/body）提取失败=丢整条；装饰（url/priority）失败=省略照发。
+# 值规则：number/bool 自动转字；标量数组 join ", "；对象/对象数组/缺失/null=提取失败（§4.1）。
+mapping:
+  title: "Echo 通知"
+  body: "{{$.message}}（来自 {{$.source}}）"
+  url: "{{$.link}}"          # 装饰字段：缺失/null 时省略照发（nullable 源字段可安全引用）
+
+# 投递目标："" = 广播全部设备；slug 或 uuid = 定向一台。禁止填 key1。
+device: ""
+
+# 样例（必带 ≥1，装上即自检）：禁止手写想象，须源自真实捕获——
+# 这里是教学样板所以用假想 payload，真实插件请抓真事件填。
+examples:
+  - name: notify-event
+    body:
+      type: notify
+      priority: 5
+      message: 构建完成
+      source: ci
+      link: https://ci.example.com/run/42
+    expect:
+      pass: true
+      title: "Echo 通知"
+      body: "构建完成（来自 ci）"
+  - name: audit-event-ignored
+    body:
+      type: audit            # filter 拒：$.type != notify
+      priority: 5
+      message: 审计日志
+      source: ci
+    expect:
+      pass: false

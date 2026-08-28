@@ -1,0 +1,84 @@
+# Hotify 插件：Memos 评论通知（翻译自 Python 桥 gitee.com/Lishuhao-lucky/memos-webhook-hotify，master@2026-08-28）。
+# 行为基线 = 桥的实现 + memos v0.30.0 发送侧源码（usememos/memos tag v0.30.0，internal/webhook/webhook.go）：
+#   仅「评论创建」事件推送（memo 新建/更新/删除静默忽略），Standard Webhooks 验签，标题/正文格式照搬桥的拼法。
+# 安装：复制到工作目录 hooks/ 下 + 设 HOOKS_MEMOS_SECRET（值 = memos 建 webhook 时显示的 whsec_... 完整串）
+#       + 重启 server（hooks.md §1/§3.5）。
+# 已知偏差（hooks/v1 表达力边界，见 hooks.md §8/§9）：
+#   - 桥给推送加 [YYYY-MM-DD HH:MM:SS] 时间戳前缀（hotify_send.py）、正文 500 字截断——
+#     hooks/v1 无函数调用/无当前时间，不可表达（Go 皮可补）。桥的 priority=4 已如实落
+#     Ext["priority"]（hooks.md §4.3——入站只存不替出站决定推送级别）。
+
+id: memos                     # URL 段 POST /hooks/memos；secret 变量名 HOOKS_MEMOS_SECRET 由它推导（hooks.md §3.5）
+apiVersion: hooks/v1
+
+# 验签：memos v0.30 按 Standard Webhooks 签名（三头 webhook-id/-timestamp/-signature，
+# 签名原文 = id "." timestamp "." raw body，密钥剥 whsec_ 前缀后 base64 解码），
+# 与桥的验签实现（verify_signature）同一配方 → 选 standard-webhooks 族（hooks.md §3.1，无额外参数）。
+verify:
+  type: standard-webhooks
+
+# 事件筛选：桥只推评论创建（PUSH_ONLY_COMMENT_CREATED + is_comment_created）。
+# memos v0.30 事件全集 = memos.memo.created / .updated / .deleted / .comment.created
+# （server/router/api/v1/memo_service_webhooks.go）；equals 精确匹配与桥的子串判断
+# （"comment" in t and "creat" in t）在这个真实事件集上行为等价。
+filter:
+  equals:
+    $.activityType: memos.memo.comment.created
+
+# 通知内容（照搬桥 build_notification 的拼法）：
+#   title = "[Memos] 收到新评论 · {creator}"（评论事件下 describe_activity 恒返回「收到新评论」；
+#   creator 在真实 payload 中恒为字符串 resource name "users/{username}"，桥的 dict 回退链是死分支）。
+#   body  = 评论正文（payload.memo.content，评论本身也是一条 memo）。
+#   桥还有「↩ 回复的 Memo」附加行，但它读的是顶层 relatedMemo/parent 字段——memos v0.30 的
+#   WebhookRequestPayload 顶层只有 url/activityType/creator/memo，二者不存在，该分支永不触发，不翻译。
+#   注：payload 顶层 url 是 webhook 目标地址回显（非 memo 深链），桥不使用，故不设 mapping.url。
+mapping:
+  title: "[Memos] 收到新评论 · {{$.creator}}"
+  body: "{{$.memo.content}}"
+  priority: "4"                   # 桥的 HOTIFY_PRIORITY 默认值（hotify_send.py）——落 Ext["priority"]，出站按需读
+
+# 投递目标：桥通过 HOTIFY_TOKEN 定向推一台设备；模板无法预知部署者的设备，
+# 按 hooks.md §10 取默认广播 ""，部署者可自行改成自己的 slug 或 uuid 恢复桥的单设备语义。
+device: ""
+
+# 样例（hooks.md §5 铁律：源自真实信息，非手写想象）——形状推导自 memos v0.30.0 发送侧源码：
+#   WebhookRequestPayload{url, activityType, creator, memo}（internal/webhook/webhook.go）
+#   经 encoding/json 序列化：字段名取 pb.go 的 json 标签（snake_case：create_time），
+#   枚举序列化为数字（State NORMAL=1；Visibility PRIVATE=1/PROTECTED=2/PUBLIC=3，
+#   评论可见性继承被评 memo），timestamppb 无 MarshalJSON → {"seconds":N} 结构。
+#   users/{username} 形态实测自本地 v0.30.0 实例（GET /api/v1/instance/profile）。
+#   真实 payload 还会携带 relations/property/snippet 等未参与渲染的字段，因逐字段形状
+#   未钉死而不列入样本（列入只会引入编造风险）；uid 具体取值按 memos/{uid} 格式构造。
+examples:
+  - name: comment-created
+    body:
+      url: https://push.example.com/hooks/memos   # webhook 目标地址原样回显（WebhookRequestPayload.URL）
+      activityType: memos.memo.comment.created
+      creator: users/golden                        # 评论作者 resource name（真实 payload 为纯字符串）
+      memo:
+        name: memos/kQ2fX7yG                       # 评论本身也是一条 memo（memos/{uid}）
+        state: 1                                   # NORMAL；encoding/json 下枚举为数字
+        creator: users/golden
+        create_time: { seconds: 1787788800 }       # timestamppb → {"seconds":N}（nanos=0 被 omitempty 略去）
+        update_time: { seconds: 1787788800 }
+        content: 写得太好了，已收藏！
+        visibility: 2                              # 评论继承被评 memo 可见性；PROTECTED=2
+    expect:
+      pass: true
+      title: "[Memos] 收到新评论 · users/golden"
+      body: "写得太好了，已收藏！"
+  - name: memo-created-ignored
+    body:
+      url: https://push.example.com/hooks/memos
+      activityType: memos.memo.created             # 非 comment.created → 桥静默忽略，filter 拒
+      creator: users/golden
+      memo:
+        name: memos/aB3xKm9p
+        state: 1
+        creator: users/golden
+        create_time: { seconds: 1787788800 }
+        update_time: { seconds: 1787788800 }
+        content: 今天读到一段很好的话。
+        visibility: 3                              # PUBLIC=3
+    expect:
+      pass: false
