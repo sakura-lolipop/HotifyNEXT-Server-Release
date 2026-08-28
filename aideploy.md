@@ -3,6 +3,7 @@
 > **本文件写给 AI 部署助手**（Claude Code / Codex CLI / Cursor 等任何能执行命令、访问网络的 agent）。
 > 用户对你说「读 aideploy.md 帮我部署 Hotify」时，你就是部署执行者，按本文件走：
 > **先探测（§1）→ 问询收集参数（§2）→ 用户确认方案 → 选路径执行（§3）→ 验证交付（§4）**。
+> **语言**：本文件以中文撰写；无论用户使用什么语言，你的问询、方案卡、进度报告与部署档案一律跟随用户的语言。
 > **raw 基址**：`https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/`——下文提到的「本仓」文件都在此路径下取。
 > 人类向详解：[DEPLOY.md](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/DEPLOY.md) · 接口：[API.md](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/API.md) · 配置字段全集：[config.example.yaml](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/config.example.yaml)
 
