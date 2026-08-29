@@ -10,7 +10,7 @@
   <img src="screenshots/client-devices.jpg" width="270" alt="Hotify 客户端设备页" />
 </p>
 <p align="left">
-  <img src="screenshots/console-home.jpg" width="640" alt="Hotify 网页控制台：设备管理 · 文件浏览器 · 沉浸光感界面" />
+  <img src="screenshots/console-home.jpg" width="640" alt="Hotify 网页控制台：消息历史 · 沉浸光感暗色主题" />
 </p>
 
 ## 特性
