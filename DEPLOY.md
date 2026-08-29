@@ -162,4 +162,4 @@ curl http://localhost:8443/api/v1/info   # 版本/构建信息（排错时先查
 
 - **Hotify 客户端**（鸿蒙）：客户端「设置 → 服务器」填入服务器地址，首个设备注册时自动完成凭证配置，全程无需浏览器（添加更多设备见 App 内引导）。
 - **自写脚本 / 程序**：走 `POST /api/v1/push` 等原生接口，见 [API.md](API.md)。
-- **现成的 bark / gotify 工具**（SmsForwarder、Home Assistant、Bark App、gotify App 等）：只需修改推送地址即可使用，见 [README](README.md) 的「兼容 bark / gotify 生态」。各平台客户端下载：**安卓** Gotify App（[官方 APK](https://github.com/gotify/android/releases)，密码填你的 Hotify 密码——`/setup` 初始化时设置的那个）；**Windows PC** GotifyClient（[gotify_pc 发行页](https://github.com/sakura-lolipop/gotify_pc/releases)，密码同上）；**iPhone** App Store 搜索 **Bark**（添加服务器即自动注册）。
+- **现成的 bark / gotify 工具**（SmsForwarder、Home Assistant、Bark App、gotify App 等）：只需修改推送地址即可使用，见 [README](README.md) 的「兼容 bark / gotify 生态」。各平台客户端下载：**安卓** Gotify App（[官方 APK](https://github.com/gotify/android/releases)，密码填你的 Hotify 密码——`/console` 初始化时设置的那个）；**Windows PC** GotifyClient（[gotify_pc 发行页](https://github.com/sakura-lolipop/gotify_pc/releases)，密码同上）；**iPhone** App Store 搜索 **Bark**（添加服务器即自动注册）。

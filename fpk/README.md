@@ -1,6 +1,6 @@
 # Hotify Server · 飞牛 fnOS 应用包（.fpk）
 
-把 Hotify Server 打成 fnOS 应用中心可安装的 `.fpk`：桌面图标（入口=浏览器开 `http://<NAS>:8443/`，首次进 `/setup` 初始化）、状态由容器健康代理、数据落在 docker named volume `hotify-data`（消息/媒体/DB 全在里面）。
+把 Hotify Server 打成 fnOS 应用中心可安装的 `.fpk`：桌面图标（入口=浏览器开 `http://<NAS>:8443/`，首次进 `/console` 初始化）、状态由容器健康代理、数据落在 docker named volume `hotify-data`（消息/媒体/DB 全在里面）。
 
 ## 安装
 

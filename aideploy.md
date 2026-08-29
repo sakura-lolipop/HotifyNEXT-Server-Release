@@ -250,7 +250,7 @@ volumes:
 ## 4 · 验证与交付（三步，别跳步）
 
 1. **服务级**：`curl http(s)://<host>:<port>/ping` → `{"code":200,"message":"pong"}`；`/api/v1/info` 看版本。服务端配的是自签证书时 curl 加 `-k`。
-2. **初始化（立刻提醒）**：让用户**马上**浏览器打开 `http(s)://<host>:<port>/console`（或 `/setup`，首访两入口同一张表单）——已预填高熵随机值，保存即完成，成功页**一次性**显示 key1（=管理密码，仅此一次，提醒用户立即保存）。公网部署这是抢注竞速，**服务起好的第一件事就是提醒这步**。若出的是登录页而非初始化表单 = 该卷已有旧 key1（§1 收养分支）。换密码：/console 管理页或 `/setup`（需当前密码）；**忘记密码**：在服务器上跑同二进制 CLI——binary 路线在 exe 同目录执行 `hotify-server show password`（Windows 即该 exe 文件名），docker 路线 `docker exec hotify-server hotify-server show password`（读 cli-token 取回 key1）；或 `reset password`（重置，全部设备需重新接入）/ `reset register`（清 key1 重开初始化窗口）。
+2. **初始化（立刻提醒）**：让用户**马上**浏览器打开 `http(s)://<host>:<port>/console`——已预填高熵随机值，保存即完成，成功页**一次性**显示 key1（=管理密码，仅此一次，提醒用户立即保存）。公网部署这是抢注竞速，**服务起好的第一件事就是提醒这步**。若出的是登录页而非初始化表单 = 该卷已有旧 key1（§1 收养分支）。换密码：/console 管理页「修改密码」（需当前密码）；**忘记密码**：在服务器上跑同二进制 CLI——binary 路线在 exe 同目录执行 `hotify-server show password`（Windows 即该 exe 文件名），docker 路线 `docker exec hotify-server hotify-server show password`（读 cli-token 取回 key1）；或 `reset password`（重置，全部设备需重新接入）/ `reset register`（清 key1 重开初始化窗口）。
 3. **首条推送冒烟**：用户在 Hotify App「设置 → 服务器」填地址（自动注册）；或用 bark / gotify App 按对应方式接入。用户在任意客户端发出第一条消息即视为冒烟通过（`POST /api/v1/push` 的 curl 由用户自己执行——key1 不经过你，用法见 [API.md](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/API.md)）。
 
 交付时输出**部署档案**（用户以后靠它）：
@@ -266,7 +266,7 @@ volumes:
 >
 > 📱 **接入设备**（按你的设备走对应一条即可；多平台场景**有鸿蒙设备则鸿蒙优先**——Hotify 客户端是第一入口，浏览器控制台只是备选）：
 > - **鸿蒙**：直接装 **Hotify 客户端**——「设置 → 服务器」填 `<对外地址>`，客户端内一步完成首次注册（凭证自动配置）。**无需先开浏览器或控制台**。
-> - **安卓**：Gotify App（[官方 APK](https://github.com/gotify/android/releases)）——服务器填 `<对外地址>`，用户名随意，密码填你的 Hotify 密码（还没有密码？先浏览器开 `<对外地址>/setup` 设置一个）
+> - **安卓**：Gotify App（[官方 APK](https://github.com/gotify/android/releases)）——服务器填 `<对外地址>`，用户名随意，密码填你的 Hotify 密码（还没有密码？先浏览器开 `<对外地址>/console` 设置一个）
 > - **PC（Windows）**：Gotify PC 客户端（[gotify_pc 发行页](https://github.com/sakura-lolipop/gotify_pc/releases)）——同安卓方式接入，密码同上
 > - **iPhone**：App Store 搜索 **Bark**——App 内添加服务器填 `<对外地址>` 即自动注册，无需密码
 >
