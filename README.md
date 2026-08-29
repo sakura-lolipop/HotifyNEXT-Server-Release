@@ -9,6 +9,9 @@
   <img src="screenshots/client-messages.jpg" width="270" alt="Hotify 客户端消息页" />
   <img src="screenshots/client-devices.jpg" width="270" alt="Hotify 客户端设备页" />
 </p>
+<p align="left">
+  <img src="screenshots/console-home.jpg" width="640" alt="Hotify 网页控制台：设备管理 · 文件浏览器 · 沉浸光感界面" />
+</p>
 
 ## 特性
 
@@ -18,7 +21,7 @@
 - **多设备消息中枢**：广播 / 定向 / `phone@pad` 式私聊地址；消息、图片与文件设备间互发，换机或重装后身份自动恢复、历史消息仍保留，多端阅读进度同步
 - **媒体直传**：图片 / 音频 / 视频 / 文件走同一推送接口上传，单次默认上限 4GiB、全程流式，附件支持断点续传；配置 `external_url` 后，bark / gotify 客户端的通知也能直接显示图片（单图消息）
 - **webhook 插件**：一份声明式 YAML 接入任意 webhook 源（memos 评论、Grafana 告警、Sonarr 下载完成…），放进 `hooks/` 目录即装；插件是纯数据，写不出恶意行为。现成插件与 AI 代写指南见 [HotifyNEXT-Plugins](https://gitee.com/sakura-lolipop/hotifynext-plugins)——把规则文档和服务名发给任意 AI 助手，一句话让它替你写
-- **网页管理台**：`/console` 浏览器完成初始化；`/console` 管理设备、浏览消息附件文件、在线整库备份
+- **网页管理台**：`/console` 浏览器完成初始化与管理一切——设备增删改名、消息附件文件浏览器（按图片/视频/音频分桶）、在线整库备份、修改密码。玻璃拟态界面，明暗双主题，暗色下有沉浸光感背景（光晕与星点 Canvas 渲染），强度可在光感面板自由调节，中英双语
 - **不停机整库备份**：一条 `curl` 命令导出事务一致快照，cron 定时拉取即可；数据全在一个目录，备份与迁移只需拷贝该目录，存储超限自动淘汰最旧内容
 - **部署简单、国内可达**：Docker 双架构一键脚本（阿里云镜像直连）、Windows 单文件 exe 或 6 平台二进制；通知内容不经过第三方中继，自托管无消息量限额
 
