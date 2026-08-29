@@ -123,7 +123,7 @@ env 矩阵（全部 opt-in；一项不配也能启动，离线推送开箱即用
 | `CERT_FILE` / `KEY_FILE` | 直配证书（Q4=c） | 容器内路径，配合 `./certs:/data/certs:ro` 只读挂载 |
 | `CLOUD_FUNCTION_TOKEN` | **基本不用** | 离线推送的出票服务（票端点）仅自建、且其开了 `TICKET_AUTH_TOKEN` 时才填同值；项目方公共端点匿名开放，留空 |
 
-注意：`store.path` / `store.type` 不走 env。数据全在 named volume `hotify-data`（`/data` 下 db / blobs / log / cli-token）——本仓 compose 已用 `name:` 固定卷名，不随部署目录变。仅处理**固定卷名之前**的旧测试部署时才需 `docker volume ls -q | grep hotify` 核对（旧卷带 `<目录名>_` 前缀）；改 bind mount 须先 `chown -R 10001:10001 ./data`（容器以 uid 10001 运行）。
+注意：`store.path` / `store.type` 不走 env。数据全在 named volume `hotify-data`（`/data` 下 db / blobs / log / cli-token / hooks 插件目录）——本仓 compose 已用 `name:` 固定卷名，不随部署目录变。仅处理**固定卷名之前**的旧测试部署时才需 `docker volume ls -q | grep hotify` 核对（旧卷带 `<目录名>_` 前缀）；改 bind mount 须先 `chown -R 10001:10001 ./data`（容器以 uid 10001 运行）。
 
 ### 3.3 Windows · 二进制
 
@@ -258,6 +258,12 @@ volumes:
 数据位置（卷或目录）· 日志查看命令 · 升级一条命令 · 停服一条命令
 ```
 
+最后以**结束语**收尾（跟随用户语言；中文用户照原句，英文用户：*Server installed — welcome to Hotify!*），紧跟一条**插件提示**（同样跟随用户语言，按实际部署形态措辞）：
+
+> ✅ **服务器安装已完成，欢迎使用 Hotify！**
+>
+> 💡 进阶：想让 memos 评论、Grafana 告警、Sonarr 下载完成这类 webhook 事件推到手机？Hotify 支持 AI 代装的**插件**——一份声明式 yaml 放进 hooks 目录即装（docker：compose 加 `./hooks:/data/hooks` 挂载 + 一条 `HOOKS_<ID>_SECRET` 环境变量 + 重启；binary：exe 同目录 `hooks/`）。规则文档与现成插件见 [HotifyNEXT-Plugins](https://gitee.com/sakura-lolipop/HotifyNEXT-Plugins)（[hooks.md 规范直链](https://gitee.com/sakura-lolipop/HotifyNEXT-Plugins/raw/main/hooks.md)，GitHub 同路径）——把规范和服务名交给任意 AI 助手（**包括刚刚帮你装好服务器的这一个**）一句话就能写好装好；插件是纯数据，写不出恶意行为。
+
 ## 5 · 升级 / 备份 / 卸载
 
 - **升级（docker）**：**改 compose image tag → `docker compose up -d`（唯一可靠路径**，数据在卷不受影响）。重跑 install.sh **不会**跨版本——compose 已存在时脚本不覆盖、tag 不变，只刷新当前 tag 的镜像。
@@ -283,3 +289,4 @@ volumes:
 | 同机再起一套：container name 冲突 | 是否已有实例在跑 | 单机单实例默认；要双实例按 §3.7 三处同改 |
 | 第二套反复重启，日志 `bbolt timeout` | 卷名漏改，两容器共用同一数据库文件 | bbolt 文件锁拒绝（防止相互写坏数据，数据无损）；按 §3.7 改齐卷名 |
 | 改了 env 后行为没变 | 是否只执行了 `restart` | `restart` 不重读 compose 改动，改 env 后要 `up -d`（§3.2） |
+| 装了插件但没通知 | `docker logs hotify-server 2>&1 \| grep '\[hooks\]'` | 期望 `[hooks] loaded N plugin(s)`；零插件=挂载路径错（应为 `./hooks:/data/hooks`）；yaml 写错会启动即报错不静默 |
