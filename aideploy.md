@@ -72,7 +72,7 @@ curl -s https://gitee.com/api/v5/repos/sakura-lolipop/HotifyNEXT-Server-Release/
 | Q2 | （远程时）SSH 连接 | host / user / port / 密钥 or 密码 | 密码认证先按 §3.0 配置密钥 |
 | Q3 | 部署形态 | **Docker（推荐）** / 二进制裸跑 | 无 docker 且不想装 → 降级二进制；Windows 目标默认二进制；飞牛 fnOS：从 §1 API 的 assets 取 `hotify-server.fpk` **移交用户**，由用户在 fnOS 应用中心手动安装（铁律 7，商店包禁代装） |
 | Q4 | 网络形态 | **a 局域网 HTTP（最简默认）** / b 反代终结 TLS / c 直配证书 / d 有域名无证书→签发 | 选 b 追问：反代是 Caddy / nginx / 面板已装？域名是什么？ |
-| Q5 | 对外地址 | `https://域名[:端口]`，没有则跳过 | 反代 / 公网 / 隧道场景必填（`EXTERNAL_URL`）；纯局域网可跳过 |
+| Q5 | 对外地址（=env `EXTERNAL_URL`） | 域名**或公网 IP**，含 scheme 与端口（`https://your-domain.example` / `http://203.0.113.5:8443`）；仅本机自用可跳过 | 判定线：**其他设备会经域名 / IP / 反代 / 隧道访问**就必问必配——不配则 bark/gotify 等第三方客户端通知不显图片、附件不可点（原生 Hotify 客户端不受影响）；纯局域网且只用原生客户端可跳过 |
 | Q6 | 端口 | 默认 **8443** | 被占时问换成哪个 |
 | Q7 | 常驻方式（仅二进制路线） | Linux: systemd / Windows: NSSM / 先前台试跑 | 建议先试跑验证再装服务 |
 | Q8 | 实例数 | **单实例（默认）** / 多实例（同机多用户各一套） | 探测到已有安装时必问；多实例走 §3.7。Hotify 一实例 = 单租户（一个主凭证（=key1）+ 设备群），多用户数据隔离靠多实例，不靠同实例分账号 |
@@ -118,7 +118,7 @@ env 矩阵（全部 opt-in；一项不配也能启动，离线推送开箱即用
 
 | env | 何时设 | 值与说明 |
 |---|---|---|
-| `EXTERNAL_URL` | 反代 / 公网 / 隧道（Q4=b/c/d 或 Q5 有值） | `https://域名[:端口]`。不设则 bark/gotify 等第三方客户端里媒体不显示、附件不可点（原生 Hotify 客户端不受影响） |
+| `EXTERNAL_URL` | 其他设备经域名 / IP / 反代 / 隧道访问的任何场景（Q5 有值即配） | `https://域名[:端口]` 或 `http://IP:端口`。不设则 bark/gotify 等第三方客户端里媒体不显示、附件不可点（原生 Hotify 客户端不受影响） |
 | `TRUSTED_PROXIES` | 反代终结 TLS | `"172.16.0.0/12,127.0.0.1"`（正确解析 X-Forwarded-For） |
 | `CERT_FILE` / `KEY_FILE` | 直配证书（Q4=c） | 容器内路径，配合 `./certs:/data/certs:ro` 只读挂载 |
 | `CLOUD_FUNCTION_TOKEN` | **基本不用** | 离线推送的出票服务（票端点）仅自建、且其开了 `TICKET_AUTH_TOKEN` 时才填同值；项目方公共端点匿名开放，留空 |
