@@ -262,7 +262,7 @@ volumes:
 
 > ✅ **服务器安装已完成，欢迎使用 Hotify！**
 >
-> 📱 **接入设备**（按你的设备走对应一条即可）：
+> 📱 **接入设备**（按你的设备走对应一条即可；多平台场景**有鸿蒙设备则鸿蒙优先**——Hotify 客户端是第一入口，浏览器控制台只是备选）：
 > - **鸿蒙**：直接装 **Hotify 客户端**——「设置 → 服务器」填 `<对外地址>`，客户端内一步完成首次注册（凭证自动配置）。**无需先开浏览器或控制台**。
 > - **安卓**：Gotify App（[官方 APK](https://github.com/gotify/android/releases)）——服务器填 `<对外地址>`，用户名随意，密码填你的 Hotify 密码（还没有密码？先浏览器开 `<对外地址>/setup` 设置一个）
 > - **PC（Windows）**：Gotify PC 客户端（[gotify_pc 发行页](https://github.com/sakura-lolipop/gotify_pc/releases)）——同安卓方式接入，密码同上
