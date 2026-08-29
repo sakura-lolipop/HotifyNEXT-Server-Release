@@ -262,7 +262,11 @@ volumes:
 
 > ✅ **服务器安装已完成，欢迎使用 Hotify！**
 >
-> 📱 **接入设备**：鸿蒙设备安装 **Hotify 客户端**，「设置 → 服务器」填 `<对外地址>` 完成首次注册（凭证自动配置）；其他平台（iPhone / bark / gotify 用户）浏览器打开 `<对外地址>/console`（或 `/setup`）完成初始化拿到 key1——bark App 直接添加该服务器即自动注册，gotify App 用 key1 当登录密码。
+> 📱 **接入设备**（gotify 系登录需 key1——尚未初始化的先浏览器开 `<对外地址>/console` 或 `/setup` 完成）：
+> - **鸿蒙**：**Hotify 客户端**——「设置 → 服务器」填 `<对外地址>`，首次注册自动完成凭证配置
+> - **安卓**：Gotify App（[官方 APK](https://github.com/gotify/android/releases)）——服务器填 `<对外地址>`，用户名随意，密码填 key1
+> - **PC（Windows）**：Gotify PC 客户端（[gotify_pc 发行页](https://github.com/sakura-lolipop/gotify_pc/releases)）——同 gotify 方式接入，密码 key1
+> - **iPhone**：App Store 搜索 **Bark**——App 内添加服务器填 `<对外地址>`，自动注册
 >
 > 💡 进阶：想让 memos 评论、Grafana 告警、Sonarr 下载完成这类 webhook 事件推到手机？Hotify 支持 AI 代装的**插件**——一份声明式 yaml 放进 hooks 目录即装（docker：compose 加 `./hooks:/data/hooks` 挂载 + 一条 `HOOKS_<ID>_SECRET` 环境变量 + 重启；binary：exe 同目录 `hooks/`）。规则文档与现成插件见 [HotifyNEXT-Plugins](https://gitee.com/sakura-lolipop/HotifyNEXT-Plugins)（[hooks.md 规范直链](https://gitee.com/sakura-lolipop/HotifyNEXT-Plugins/raw/main/hooks.md)，GitHub 同路径）——把规范和服务名交给任意 AI 助手（**包括刚刚帮你装好服务器的这一个**）一句话就能写好装好；插件是纯数据，写不出恶意行为。
 
