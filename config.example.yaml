@@ -21,6 +21,8 @@ server:
   #   - 不配置 → 关闭上述第三方客户端的媒体地址改写（原生 Hotify 客户端不受影响）
   # external_url: "https://your-domain.example:8443"
   # max_upload: "8GiB"      # 单次上传上限（含 meta+全部文件；默认 4GiB；整数值单位为 MB）
+  # clipboard_ttl_seconds: 86400   # 剪贴板槽保留时长（秒；默认 86400=24h；-1=永不过期）。
+  #                            # /console 服务设置（navbar 钥匙图标）可改可持久、热生效；改本文件需重启。
 
 pushkit:
   # cloud_function_urls 留空（默认）= 自动拉取推送入口 URL + 每小时刷新，无需手填。

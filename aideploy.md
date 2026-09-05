@@ -28,11 +28,22 @@ command -v ssh scp               # 远程部署的前提
 ss -ltn | grep 8443              # 端口占用（Windows: netstat -ano | findstr 8443）
 ```
 
+Windows 本机（PowerShell——注意 `curl` 在 PowerShell 里是 `Invoke-WebRequest` 的别名，行为不同；下文所有文档命令里的 `curl` 在 Windows 都用 **`curl.exe`** 或改用 `irm`）：
+
+```powershell
+$env:PROCESSOR_ARCHITECTURE                         # AMD64 / ARM64
+Get-Command docker -ErrorAction SilentlyContinue; docker compose version
+Get-Command ssh -ErrorAction SilentlyContinue
+netstat -ano | findstr :8443                        # 端口占用
+```
+
 **远程机**（用户给了 SSH 目标时）：
 
 ```bash
 ssh -p <port> <user>@<host> 'uname -s -m; command -v docker && docker compose version; command -v sudo >/dev/null && sudo -n true && echo SUDO_NOPASS'
 ```
+
+（Windows 本机发起：Win10+ 自带 OpenSSH 客户端，上条原样可用——PowerShell 里单引号串不展开、正好整段交给远端 bash。密钥配置见 §3.0，那里有三平台命令。）
 
 - 连不上 / 只能密码登录 → 先走 §3.0。
 - 记下：OS、arch、docker 有无、sudo 是否免密——§2 的 Q3 可据此自动作答。
@@ -50,6 +61,13 @@ systemctl is-active hotify 2>/dev/null                                        # 
 sc query hotify 2>/dev/null                                                   # Windows 服务(NSSM)
 ```
 
+docker 两条命令跨平台原样可用；文件检测 Windows 版（PowerShell）：
+
+```powershell
+Test-Path .\docker-compose.yml, D:\hotify-server\hotify.db, "$env:USERPROFILE\hotify-server\hotify.db"
+sc.exe query hotify                                    # NSSM 服务（PowerShell 里 sc 是 Set-Content 别名，须写 sc.exe）
+```
+
 命中后先分类再问（三类不是一回事）：
 
 - **在跑实例**（容器 Up / systemd active）→ §2 首问三选一：**升级它 / 保持不动另装一套（多实例，§3.7）/ 卸载重装**，方案卡带上现有实例的版本与端口。
@@ -62,6 +80,13 @@ sc query hotify 2>/dev/null                                                   # 
 curl -s https://gitee.com/api/v5/repos/sakura-lolipop/HotifyNEXT-Server-Release/releases/latest
 # 取 tag_name 与 assets[].browser_download_url（二进制 + checksums.txt 直链）
 # 拿不到 → 退回本仓 install.sh 内置默认 tag，或问用户
+```
+
+Windows（PowerShell）：
+
+```powershell
+irm https://gitee.com/api/v5/repos/sakura-lolipop/HotifyNEXT-Server-Release/releases/latest | Select tag_name
+# 附件直链：上式结果 .assets[].browser_download_url（二进制 + checksums.txt）
 ```
 
 ## 2 · 问询（按序；探测已能回答的跳过；选项相近可合并成一轮问）
@@ -111,7 +136,7 @@ ssh -p <port> <user>@<host> 'HOTIFY_PORT=9443 curl -fsSL https://gitee.com/sakur
 
 ### 3.2 Docker · 手动 compose（需要精细控制 env 时；**Windows 本机 Docker Desktop 也走这条**——§3.1 一键脚本面向 Linux）
 
-1. 把本仓 `docker-compose.yml` 传到目标目录（raw 基址拼文件名 curl 下来，或 scp）。
+1. 把本仓 `docker-compose.yml` 传到目标目录（raw 基址拼文件名 curl 下来，或 scp；Windows 本机 `curl.exe -L -o docker-compose.yml https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/docker-compose.yml`）。
 2. 按需编辑 `environment:` 块（矩阵见下）。⚠️ **别用 `.env` 或 `env_file:`**——群晖/Portainer 等 GUI 不读取。
 3. compose 钉稳定 tag（有意的「确认升级」设计）：方案卡版本 ≠ compose 里 image tag 时，同步改 image 行；**不要改成 `latest`**（pull 会隐式升级到未预览版本）。
 4. `docker compose up -d`，`docker compose logs --tail 20` 确认监听（人类交互终端才用 `-f`；agent 非交互执行 `-f` 会挂住）。
@@ -130,11 +155,16 @@ env 矩阵（全部 opt-in；一项不配也能启动，离线推送开箱即用
 ### 3.3 Windows · 二进制
 
 ```powershell
-# 1) 下载：hotify-server-<tag>-windows-amd64.exe + checksums.txt（Release 附件；§1 的 API 取直链）
+# 1) 下载（§1 的 API 取直链；tag 换实际版本，如 v1.4）
+curl.exe -LO https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/releases/download/<tag>/hotify-server-<tag>-windows-amd64.exe
+curl.exe -LO https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/releases/download/<tag>/checksums.txt
 # 2) 校验（对比 checksums.txt 内对应行）
 Get-FileHash .\hotify-server-<tag>-windows-amd64.exe -Algorithm SHA256
 # 3) 建目录如 D:\hotify-server\：exe 放入，本仓 config.example.yaml 复制为同目录 config.yaml（默认值即可启动）
-# 4) 前台试跑该 exe；新窗口 curl http://localhost:8443/ping 验证
+curl.exe -L -o D:\hotify-server\config.yaml https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/config.example.yaml
+# 4) 前台试跑该 exe；另开窗口验证（curl.exe——PowerShell 裸 curl 是 Invoke-WebRequest 别名，别混用）
+Set-Location D:\hotify-server; .\hotify-server-<tag>-windows-amd64.exe
+curl.exe http://localhost:8443/ping
 ```
 
 常驻（Q7=NSSM，nssm 未装先去 https://nssm.cc 下载放 PATH）：
@@ -249,8 +279,8 @@ volumes:
 
 ## 4 · 验证与交付（三步，别跳步）
 
-1. **服务级**：`curl http(s)://<host>:<port>/ping` → `{"code":200,"message":"pong"}`；`/api/v1/info` 看版本。服务端配的是自签证书时 curl 加 `-k`。
-2. **初始化（立刻提醒）**：让用户**马上**浏览器打开 `http(s)://<host>:<port>/console`——已预填高熵随机值，保存即完成，成功页**一次性**显示 key1（=管理密码，仅此一次，提醒用户立即保存）。公网部署这是抢注竞速，**服务起好的第一件事就是提醒这步**。若出的是登录页而非初始化表单 = 该卷已有旧 key1（§1 收养分支）。换密码：/console 管理页「修改密码」（需当前密码）；**忘记密码**：在服务器上跑同二进制 CLI——binary 路线在 exe 同目录执行 `hotify-server show password`（Windows 即该 exe 文件名），docker 路线 `docker exec hotify-server hotify-server show password`（读 cli-token 取回 key1）；或 `reset password`（重置，全部设备需重新接入）/ `reset register`（清 key1 重开初始化窗口）。
+1. **服务级**：`curl http(s)://<host>:<port>/ping` → `{"code":200,"message":"pong"}`；`/api/v1/info` 看版本。服务端配的是自签证书时 curl 加 `-k`。（Windows 用 `curl.exe` 同参数；或 `irm <url>/ping`。）
+2. **初始化（立刻提醒）**：让用户**马上**浏览器打开 `http(s)://<host>:<port>/console`——已预填高熵随机值，保存即完成，成功页**一次性**显示 key1（=管理密码，仅此一次，提醒用户立即保存）。公网部署这是抢注竞速，**服务起好的第一件事就是提醒这步**。若出的是登录页而非初始化表单 = 该卷已有旧 key1（§1 收养分支）。换密码：/console 管理页「修改密码」（需当前密码）；**忘记密码**：在服务器上跑同二进制 CLI——binary 路线在 exe 同目录执行 `hotify-server show password`（Windows 即 `.\hotify-server-<tag>-windows-amd64.exe show password`，PowerShell 别忘了 `.\` 前缀），docker 路线 `docker exec hotify-server hotify-server show password`（读 cli-token 取回 key1）；或 `reset password`（重置，全部设备需重新接入）/ `reset register`（清 key1 重开初始化窗口）。
 3. **首条推送冒烟**：用户在 Hotify App「设置 → 服务器」填地址（自动注册）；或用 bark / gotify App 按对应方式接入。用户在任意客户端发出第一条消息即视为冒烟通过（`POST /api/v1/push` 的 curl 由用户自己执行——key1 不经过你，用法见 [API.md](https://gitee.com/sakura-lolipop/HotifyNEXT-Server-Release/raw/main/API.md)）。
 
 交付时输出**部署档案**（用户以后靠它）：
@@ -281,6 +311,11 @@ volumes:
   docker run --rm -v hotify-data:/data -v "$(pwd)":/backup alpine \
     tar czf /backup/hotify-backup-$(date +%F).tar.gz -C /data .
   ```
+  Windows（PowerShell；`$(pwd)`/`$(date +%F)` 是 bash 语法不能直接用，卷挂载须绝对路径）：
+  ```powershell
+  $bk = "hotify-backup-$(Get-Date -Format yyyy-MM-dd).tar.gz"
+  docker run --rm -v hotify-data:/data -v "${PWD}:/backup" alpine tar czf "/backup/$bk" -C /data .
+  ```
   恢复/迁移步骤见 DEPLOY.md「备份 / 恢复 / 迁移」（raw 基址下；旧版部署的卷可能带前缀，先 `docker volume ls -q | grep hotify` 核对）；binary = 拷贝整个目录。
 - **卸载**：`docker compose down`（数据留存）/ 停服删 unit；彻底清理另加 `docker rmi <compose 里 image 的完整地址>`（`install.sh --uninstall` 只打印指令不代删，同样安全）。彻底删数据必须用户**亲口确认后自己执行** `down -v`，你不代跑（纯测试/一次性部署经用户确认后可代跑，事后报告）。
 
@@ -297,4 +332,4 @@ volumes:
 | 同机再起一套：container name 冲突 | 是否已有实例在跑 | 单机单实例默认；要双实例按 §3.7 三处同改 |
 | 第二套反复重启，日志 `bbolt timeout` | 卷名漏改，两容器共用同一数据库文件 | bbolt 文件锁拒绝（防止相互写坏数据，数据无损）；按 §3.7 改齐卷名 |
 | 改了 env 后行为没变 | 是否只执行了 `restart` | `restart` 不重读 compose 改动，改 env 后要 `up -d`（§3.2） |
-| 装了插件但没通知 | `docker logs hotify-server 2>&1 \| grep '\[hooks\]'` | 期望 `[hooks] loaded N plugin(s)`；零插件=挂载路径错（应为 `./hooks:/data/hooks`）；yaml 写错会启动即报错不静默 |
+| 装了插件但没通知 | `docker logs hotify-server 2>&1 \| grep '\[hooks\]'`（Windows：`docker logs hotify-server 2>&1 \| Select-String '\[hooks\]'`） | 期望 `[hooks] loaded N plugin(s)`；零插件=挂载路径错（应为 `./hooks:/data/hooks`）；yaml 写错会启动即报错不静默 |

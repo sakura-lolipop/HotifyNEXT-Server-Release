@@ -10,7 +10,7 @@
 
 set -u
 
-TAG="${HOTIFY_TAG:-v1.3}"
+TAG="${HOTIFY_TAG:-v1.4}"
 REGISTRY_HOST="crpi-gi2hyqoir87c0lus.cn-hangzhou.personal.cr.aliyuncs.com"
 IMAGE="$REGISTRY_HOST/sakura-lolipop/hotify-server"
 PORT="${HOTIFY_PORT:-8443}"
