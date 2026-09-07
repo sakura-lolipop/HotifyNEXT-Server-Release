@@ -1,5 +1,5 @@
 appname               = hotify-server
-version               = 1.4.0
+version               = 1.4.1
 display_name          = Hotify Server
 desc                  = Hotify Server，自托管的多设备消息与推送服务器：短信验证码、服务器告警、自动化通知统一送达你的全部设备——iPhone 装 Bark App 收离线推送，Windows / 安卓接 gotify 客户端，鸿蒙走华为系统级通道锁屏必达；手机↔PC 剪贴板互相粘贴（找回环 20 条，安卓可直用 SyncClipboard 客户端）；消息图片文件全留档在你自己的 NAS，支持多端阅读进度同步与网页管理台；短信转发器、Uptime Kuma 换个推送地址直接用。
 platform              = all
@@ -12,4 +12,4 @@ service_port          = 8443
 checkport            = false
 desktop_uidir         = ui
 desktop_applaunchname = hotify-server.main
-changelog             = v1.4: 跨设备剪贴板同步(手机↔PC 互相粘贴,找回环 20 条,TTL 可配)+SyncClipboard 安卓客户端零改动直连+console 光感遮挡重做
+changelog             = v1.4.1: SyncClipboard 桌面客户端(Windows/macOS/Linux)零改动直连+手机内容桌面可下载(hash 双病灶根治)
