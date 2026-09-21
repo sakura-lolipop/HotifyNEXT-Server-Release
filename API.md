@@ -50,6 +50,8 @@ curl -X POST https://your-domain.example/api/v1/push \
 - `sender_uuid`：可选，以某台设备身份发送（消息带来源标识）
 - 返回的 `hlc` 是这条消息的 id（字符串），用于删除、翻页
 
+**发送者头像（v1.5.0 新增）**：消息带来源标识（`sender_uuid` / bark 复合凭证 `sender@target`）且该设备在 App 里设置了头像时，鸿蒙端通知自动带发送者头像——左上角标（`overlayIcon`）+ 右侧大图（`notification.image`），类目分派为 IM、标题不带「订阅:」前缀。要求：server 配置 `external_url`（公网可达，华为服务器要来拉图；不配=推送照常无图）；角标仅 HarmonyOS 6.1.0(23)+ 设备显示（低版本静默无角标，大图不受限）。也可用 `ext: {"icon": "<https URL>"}` 显式指定徽标（只作角标，不占大图位）。头像读取支持 presigned 短时效签名：`GET /api/v1/devices/{uuid}/avatar?e=<过期>&s=<签名>`（48h，HMAC——通知载荷与第三方拉图方均不接触 key1）。
+
 **带附件**（multipart）：form 字段 `meta` 放消息 JSON（同上字段集），`file` part 放文件（可多个）。单次上限默认 4GiB（可配）。
 
 `GET /api/v1/media`：全库附件索引（web 控制台文件浏览器的数据源；新→旧，带原始文件名，key1 鉴权）。
