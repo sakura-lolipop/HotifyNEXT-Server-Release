@@ -1,0 +1,53 @@
+# release-mirror —— 源码仓（HotifyNEXT-Server）release → 本仓 GitHub 发行镜像。
+# v1.5.0 起发行资产三口：GitHub 源码仓 Releases（CI 直发）/ 本仓 GitHub Releases（本 workflow 镜像）/
+# Gitee 本仓 Releases（本地脚本 gitee-upload.sh，token 不进 CI）。
+# 用法：fpk 挂上源仓 release 后 → gh workflow run release-mirror.yml -f tag=vX.Y.Z -R 本仓
+# 幂等：删本仓同名旧 release 重建；下载后 sha256 全量校验（checksums 为源仓 CI 产物）。
+name: Release Mirror
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '源码仓 release tag（如 v1.5.0）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      SRC: sakura-lolipop/HotifyNEXT-Server
+      DST: sakura-lolipop/HotifyNEXT-Server-Release
+    steps:
+      - name: 等源仓 CI 附件齐（7 = 6 二进制 + checksums；fpk 后挂不阻塞）
+        run: |
+          for i in $(seq 1 40); do
+            n=$(gh api "repos/$SRC/releases/tags/$TAG" --jq '[.assets[] | select(.name != "hotify-server.fpk")] | length' 2>/dev/null || echo 0)
+            [ "$n" -ge 7 ] && { echo "源仓附件齐（$n/7）"; exit 0; }
+            echo "探测 $i：附件 $n/7，20s 再探"; sleep 20
+          done
+          echo "::error::源仓 CI 附件 10 分钟未齐"; exit 1
+
+      - name: 下载源仓附件
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" -R "$SRC" -D dist --clobber
+          ls -la dist/
+
+      - name: sha256 全量校验
+        run: cd dist && sha256sum -c checksums.txt
+
+      - name: 取源仓 changelog 正文
+        run: gh api "repos/$SRC/contents/changelog/$TAG.md" --jq '.content' | base64 -d > body.md
+
+      - name: 删本仓同名旧 release（幂等重打）
+        run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
+
+      - name: 建本仓 release + 传全部附件
+        run: gh release create "$TAG" -R "$DST" --title "Hotify Server $TAG" --notes-file body.md dist/* --clobber
