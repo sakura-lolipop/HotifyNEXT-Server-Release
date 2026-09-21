@@ -20,7 +20,10 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ github.token }}
+      # ⚠️ 源码仓是**私有仓**——github.token 只作用于本仓，读不了源仓（404）。必须用
+      #    MIRROR_PAT（classic PAT，至少 HotifyNEXT-Server 只读 + 本仓读写）。
+      #    首次配置：gh secret set MIRROR_PAT -R sakura-lolipop/HotifyNEXT-Server-Release --body <PAT>
+      GH_TOKEN: ${{ secrets.MIRROR_PAT }}
       TAG: ${{ inputs.tag }}
       SRC: sakura-lolipop/HotifyNEXT-Server
       DST: sakura-lolipop/HotifyNEXT-Server-Release
