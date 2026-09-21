@@ -53,4 +53,4 @@ jobs:
         run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
 
       - name: 建本仓 release + 传全部附件
-        run: gh release create "$TAG" -R "$DST" --title "Hotify Server $TAG" --notes-file body.md dist/* --clobber
+        run: gh release create "$TAG" -R "$DST" --title "Hotify Server $TAG" --notes-file body.md dist/*
