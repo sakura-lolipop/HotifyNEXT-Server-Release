@@ -39,8 +39,14 @@ key1 可在浏览器打开 `/setup` 设置获取，或首台设备注册时自�
 curl -X POST https://your-domain.example/api/v1/push \
   -H 'Authorization: Bearer your_key1' \
   -H 'Content-Type: application/json' \
-  -d '{"title":"服务器告警","body":"CPU 95%","url":"https://example.com/dashboard"}'
-# → {"code":200,"message":"success","hlc":"…","client_msg_id":"…"}
+  # → {"code":200,"message":"success","hlc":"…","client_msg_id":"…"}
+
+# ext 单键版：只设本条铃声（覆盖群/设备默认）
+curl -X POST https://your-domain.example/api/v1/push   -H 'Authorization: Bearer your_key1'   -H 'Content-Type: application/json'   -d '{"title":"部署完成","body":"耗时 3m12s","ext":{"sound":"bell"}}'
+
+# ext 多键版：铃声 + 徽标组合（键间正交，各自生效——角标显 icon，铃声播 sound）
+curl -X POST https://your-domain.example/api/v1/push   -H 'Authorization: Bearer your_key1'   -H 'Content-Type: application/json'   -d '{"title":"张三","body":"会话消息","sender_uuid":"<发送设备uuid>","ext":{"sound":"bell","icon":"https://example.com/icon.png"}}'
+# → sender_uuid + ext.icon 同给时：角标=icon 指定 URL，大图=发送设备头像（二者分槽）
 ```
 
 - `title` / `body` 至少一个；`url`（点击跳转）、`image_url`（通知大图）、`category` 可选
