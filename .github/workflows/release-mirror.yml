@@ -47,7 +47,7 @@ jobs:
         run: cd dist && sha256sum -c checksums.txt
 
       - name: 取源仓 changelog 正文
-        run: gh api "repos/$SRC/contents/changelog/$TAG.md" --jq '.content' | base64 -d > body.md
+        run: gh api "repos/$SRC/contents/changelog/$TAG.md?ref=$TAG" --jq '.content' | base64 -d > body.md # ref=tag：changelog 在分支/tag 上，main 可能还没有（首发即此坑）
 
       - name: 删本仓同名旧 release（幂等重打）
         run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
