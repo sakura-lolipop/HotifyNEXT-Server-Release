@@ -82,8 +82,15 @@ jobs:
       - name: 删本仓同名旧 release（幂等重打）
         run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
 
-      - name: 建本仓 release + 传全部附件（7 + fpk）
-        run: gh release create "$TAG" -R "$DST" --title "Hotify Server ${TAG}" --notes-file body.md dist/* fpk/hotify-server/hotify-server.fpk
+      - name: 建本仓 release + 传全部附件（失败重试 3×30s——uploads 端点对秒建 release 偶发 404，2026-09-23 v1.5.1 三连实证）
+        run: |
+          FILES="dist/* fpk/hotify-server/hotify-server.fpk"
+          for a in 1 2 3; do
+            gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true   # 清掉上次半截 release
+            gh release create "$TAG" -R "$DST" --title "Hotify Server ${TAG}" --notes-file body.md $FILES && exit 0
+            echo "第 $a 次失败，30s 后重试"; sleep 30
+          done
+          echo "::error::三次创建均失败"; exit 1
 
       - name: Gitee 发行（建 release + 附件直传；失败标红不静默——本地 gitee-upload.sh 兜底）
         if: ${{ inputs.skip_gitee != true }}
