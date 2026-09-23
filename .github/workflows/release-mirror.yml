@@ -74,10 +74,11 @@ jobs:
           [ -f fnpack-linux ] || curl -fsSL -o fnpack-linux "https://static2.fnnas.com/fnpack/fnpack-1.2.3-linux-amd64"
           chmod 755 fnpack-linux
           ./fnpack-linux build
-          test -s hotify-server.fpk
+          mv hotify-server.fpk "hotify-server-${TAG}.fpk"   # 资产名带版本：同名软删残留会让重上传 422/404（2026-09-23 实证）
+          test -s "hotify-server-${TAG}.fpk"
 
       - name: fpk 挂源仓 release（MIRROR_PAT 写）
-        run: gh release upload "$TAG" -R "$SRC" fpk/hotify-server/hotify-server.fpk --clobber
+        run: gh release upload "$TAG" -R "$SRC" "fpk/hotify-server/hotify-server-${TAG}.fpk" --clobber
 
       - name: 删本仓同名旧 release（幂等重打）
         run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
@@ -94,7 +95,7 @@ jobs:
           echo "::error::release 60s 未可见"; exit 1
 
       - name: 传全部附件（7 + fpk）
-        run: gh release upload "$TAG" -R "$DST" dist/* fpk/hotify-server/hotify-server.fpk --clobber
+        run: gh release upload "$TAG" -R "$DST" dist/* "fpk/hotify-server/hotify-server-${TAG}.fpk" --clobber
 
       - name: Gitee 发行（建 release + 附件直传；失败标红不静默——本地 gitee-upload.sh 兜底）
         if: ${{ inputs.skip_gitee != true }}
@@ -120,7 +121,7 @@ jobs:
           done
           [ -n "$RID" ] || { echo "::error::Gitee release 创建失败"; exit 1; }
           fails=0
-          for f in dist/* fpk/hotify-server/hotify-server.fpk; do
+          for f in dist/* "fpk/hotify-server/hotify-server-${TAG}.fpk"; do
             printf '  → %-52s ' "$(basename "$f")"
             if curl -fsSL --max-time 600 --retry 3 --retry-delay 10 -X POST "$API/releases/$RID/attach_files" \
               -F "access_token=$GITEE_TOKEN" -F "file=@$f" -o /dev/null -w 'http %{http_code}\n' 2>/dev/null; then :; else echo "❌ 失败"; fails=$((fails+1)); fi
