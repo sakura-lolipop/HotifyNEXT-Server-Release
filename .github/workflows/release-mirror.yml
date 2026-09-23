@@ -1,34 +1,39 @@
-# release-mirror —— 源码仓（HotifyNEXT-Server）release → 本仓 GitHub 发行镜像。
-# v1.5.0 起发行资产三口：GitHub 源码仓 Releases（CI 直发）/ 本仓 GitHub Releases（本 workflow 镜像）/
-# Gitee 本仓 Releases（本地脚本 gitee-upload.sh，token 不进 CI）。
-# 用法：fpk 挂上源仓 release 后 → gh workflow run release-mirror.yml -f tag=vX.Y.Z -R 本仓
-# 幂等：删本仓同名旧 release 重建；下载后 sha256 全量校验（checksums 为源仓 CI 产物）。
+# release-mirror —— 源码仓 release → 本仓全量发行自动化（v1.6 起三合一）：
+#   fpk 构建（fnpack 裸跑 ubuntu，无需 docker）→ 本仓 GitHub Release（8 附件）→ Gitee 本仓 Release（10 附件）。
+# 触发：源码仓 Binary Release 末步自动 dispatch（MIRROR_PAT）/ 手动 workflow_dispatch。
+# 前置 secrets（本仓）：MIRROR_PAT（classic repo scope——读私有源仓 + 写两仓 release）、GITEE_TOKEN（Gitee 发行）。
+# 词汇/矩阵/裁定纪律详见 group.md + API.md 活消费者键表。
 name: Release Mirror
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '源码仓 release tag（如 v1.5.0）'
+        description: '源码仓 release tag（如 v1.5.1）'
         required: true
         type: string
+      skip_gitee:
+        description: '跳过 Gitee 发行（默认不跳）'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
+env:
+  GH_TOKEN: ${{ secrets.MIRROR_PAT }}   # classic repo scope：读私有源仓 + 写本仓 + 写源仓 release 附件
+  TAG: ${{ inputs.tag }}
+  SRC: sakura-lolipop/HotifyNEXT-Server
+  DST: sakura-lolipop/HotifyNEXT-Server-Release
+
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    env:
-      # ⚠️ 源码仓是**私有仓**——github.token 只作用于本仓，读不了源仓（404）。必须用
-      #    MIRROR_PAT（classic PAT，至少 HotifyNEXT-Server 只读 + 本仓读写）。
-      #    首次配置：gh secret set MIRROR_PAT -R sakura-lolipop/HotifyNEXT-Server-Release --body <PAT>
-      GH_TOKEN: ${{ secrets.MIRROR_PAT }}
-      TAG: ${{ inputs.tag }}
-      SRC: sakura-lolipop/HotifyNEXT-Server
-      DST: sakura-lolipop/HotifyNEXT-Server-Release
     steps:
-      - name: 等源仓 CI 附件齐（7 = 6 二进制 + checksums；fpk 后挂不阻塞）
+      - uses: actions/checkout@v4   # 本仓（fpk 项目 + fnpack-linux）
+
+      - name: 等源仓 CI 附件齐（7 = 6 二进制 + checksums；fpk 本 workflow 自建不阻塞）
         run: |
           for i in $(seq 1 40); do
             n=$(gh api "repos/$SRC/releases/tags/$TAG" --jq '[.assets[] | select(.name != "hotify-server.fpk")] | length' 2>/dev/null || echo 0)
@@ -37,13 +42,13 @@ jobs:
           done
           echo "::error::源仓 CI 附件 10 分钟未齐"; exit 1
 
-      - name: 下载源仓附件（重试——资产上传完成后 API 副本传播有抖动，2026-09-23 v1.5.1 实证）
+      - name: 下载源仓附件（重试 20×30s 穿透传播窗口——v1.5.1 实证：上传完成后 API 副本传播仍抖 ~7 分钟）
         run: |
           mkdir -p dist
           ok=0
           for i in $(seq 1 20); do
             gh release download "$TAG" -R "$SRC" -D dist --clobber && { ok=1; break; }
-            echo "下载第 $i 次失败（可能撞上资产传播窗口），30s 后重试"; sleep 30
+            echo "下载第 $i 次失败（资产传播窗口），30s 后重试"; sleep 30
           done
           [ "$ok" = "1" ] || { echo "::error::20 次下载均失败"; exit 1; }
           ls -la dist/
@@ -52,10 +57,59 @@ jobs:
         run: cd dist && sha256sum -c checksums.txt
 
       - name: 取源仓 changelog 正文
-        run: gh api "repos/$SRC/contents/changelog/$TAG.md?ref=$TAG" --jq '.content' | base64 -d > body.md # ref=tag：changelog 在分支/tag 上，main 可能还没有（首发即此坑）
+        run: gh api "repos/$SRC/contents/changelog/$TAG.md?ref=$TAG" --jq '.content' | base64 -d > body.md
+
+      - name: 构建 fpk（manifest 注入 tag + fnpack 裸跑）
+        env:
+          GH_TOKEN: ${{ secrets.MIRROR_PAT }}
+        run: |
+          cd fpk/hotify-server
+          VER="${TAG#v}"
+          TITLE=$(gh api "repos/$SRC/contents/changelog/$TAG.md?ref=$TAG" --jq '.content' | base64 -d | head -1 | sed 's/^# //')
+          sed -i "s|^version.*|version               = ${VER}|" manifest
+          sed -i "s|^changelog.*|changelog             = ${TAG}: ${TITLE}|" manifest
+          sed -i "s|hotify-server:v[0-9.]*|hotify-server:${TAG}|" app/docker/docker-compose.yaml
+          grep -nE "^version|^changelog" manifest
+          chmod 755 cmd/* fnpack-linux
+          ./fnpack-linux build
+          test -s hotify-server.fpk
+
+      - name: fpk 挂源仓 release（MIRROR_PAT 写）
+        run: gh release upload "$TAG" -R "$SRC" fpk/hotify-server/hotify-server.fpk --clobber
 
       - name: 删本仓同名旧 release（幂等重打）
         run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
 
-      - name: 建本仓 release + 传全部附件
-        run: gh release create "$TAG" -R "$DST" --title "Hotify Server $TAG" --notes-file body.md dist/*
+      - name: 建本仓 release + 传全部附件（7 + fpk）
+        run: gh release create "$TAG" -R "$DST" --title "Hotify Server ${TAG}" --notes-file body.md dist/* fpk/hotify-server/hotify-server.fpk
+
+      - name: Gitee 发行（建 release + 附件直传；失败标红不静默——本地 gitee-upload.sh 兜底）
+        if: ${{ inputs.skip_gitee != true }}
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          API="https://gitee.com/api/v5/repos/$DST"
+          RID=$(curl -fsSL --max-time 30 "$API/releases/tags/$TAG?access_token=$GITEE_TOKEN" 2>/dev/null | jq -r '.id // empty' || true)
+          if [ -n "$RID" ]; then
+            echo "删 Gitee 旧 release id=$RID"
+            curl -fsSL --max-time 30 -X DELETE "$API/releases/$RID?access_token=$GITEE_TOKEN" -o /dev/null || true
+            sleep 2
+          fi
+          python3 - "$TAG" body.md /tmp/gitee-body.json <<'PY'
+          import json, sys
+          json.dump({"tag_name": sys.argv[1], "name": f"Hotify Server {sys.argv[1]}", "body": open(sys.argv[2], encoding="utf-8").read(), "target_commitish": "main"}, open(sys.argv[3], "w", encoding="utf-8"), ensure_ascii=False)
+          PY
+          RID=""
+          for a in 1 2 3 4; do
+            RID=$(curl -fsSL --max-time 30 -X POST "$API/releases?access_token=$GITEE_TOKEN" -H "Content-Type: application/json" -d @/tmp/gitee-body.json 2>/dev/null | jq -r '.id // empty')
+            [ -n "$RID" ] && break
+            sleep 3
+          done
+          [ -n "$RID" ] || { echo "::error::Gitee release 创建失败"; exit 1; }
+          fails=0
+          for f in dist/* fpk/hotify-server/hotify-server.fpk; do
+            printf '  → %-52s ' "$(basename "$f")"
+            if curl -fsSL --max-time 600 --retry 3 --retry-delay 10 -X POST "$API/releases/$RID/attach_files" \
+              -F "access_token=$GITEE_TOKEN" -F "file=@$f" -o /dev/null -w 'http %{http_code}\n' 2>/dev/null; then :; else echo "❌ 失败"; fails=$((fails+1)); fi
+          done
+          [ $fails -eq 0 ] && echo "Gitee ✅ 全部附件直传完成" || { echo "::error::Gitee $fails 个附件失败（本地 gitee-upload.sh 兜底后重跑本 workflow）"; exit 1; }
