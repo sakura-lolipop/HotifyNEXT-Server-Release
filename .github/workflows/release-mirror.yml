@@ -41,11 +41,11 @@ jobs:
         run: |
           mkdir -p dist
           ok=0
-          for i in 1 2 3 4 5; do
+          for i in $(seq 1 20); do
             gh release download "$TAG" -R "$SRC" -D dist --clobber && { ok=1; break; }
-            echo "下载第 $i 次失败（可能撞上资产传播窗口），60s 后重试"; sleep 60
+            echo "下载第 $i 次失败（可能撞上资产传播窗口），30s 后重试"; sleep 30
           done
-          [ "$ok" = "1" ] || { echo "::error::5 次下载均失败"; exit 1; }
+          [ "$ok" = "1" ] || { echo "::error::20 次下载均失败"; exit 1; }
           ls -la dist/
 
       - name: sha256 全量校验
