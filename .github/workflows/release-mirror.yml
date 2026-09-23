@@ -82,15 +82,19 @@ jobs:
       - name: 删本仓同名旧 release（幂等重打）
         run: gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true
 
-      - name: 建本仓 release + 传全部附件（失败重试 3×30s——uploads 端点对秒建 release 偶发 404，2026-09-23 v1.5.1 三连实证）
+      - name: 建本仓 release（先建空壳——create 后立即传附件会撞 uploads 服务可见性滞后，404 三连实证）
+        run: gh release create "$TAG" -R "$DST" --title "Hotify Server ${TAG}" --notes-file body.md
+
+      - name: 等 release 对 uploads 服务可见
         run: |
-          FILES="dist/* fpk/hotify-server/hotify-server.fpk"
-          for a in 1 2 3; do
-            gh release delete "$TAG" -R "$DST" --yes 2>/dev/null || true   # 清掉上次半截 release
-            gh release create "$TAG" -R "$DST" --title "Hotify Server ${TAG}" --notes-file body.md $FILES && exit 0
-            echo "第 $a 次失败，30s 后重试"; sleep 30
+          for i in $(seq 1 12); do
+            gh api "repos/$DST/releases/tags/$TAG" --jq '.id' >/dev/null 2>&1 && { echo "release 可见（第 $i 探）"; exit 0; }
+            sleep 5
           done
-          echo "::error::三次创建均失败"; exit 1
+          echo "::error::release 60s 未可见"; exit 1
+
+      - name: 传全部附件（7 + fpk）
+        run: gh release upload "$TAG" -R "$DST" dist/* fpk/hotify-server/hotify-server.fpk --clobber
 
       - name: Gitee 发行（建 release + 附件直传；失败标红不静默——本地 gitee-upload.sh 兜底）
         if: ${{ inputs.skip_gitee != true }}
